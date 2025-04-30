@@ -1,0 +1,90 @@
+services:
+  # --- Servicio del Web Scraper ---
+  scraper:
+    build:
+      context: ./scraper
+    container_name: waze_scraper
+    volumes:
+      - scraper_output:/app
+    restart: always # Mantener el scraper corriendo
+
+  # --- Servicio MongoDB ---
+  mongo_db:
+    image: mongo:latest
+    container_name: waze_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db # Volumen para persistir datos de MongoDB
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: waze_data
+
+  # --- Servicio Redis Cache ---
+  redis_cache:
+    image: redis:latest
+    container_name: waze_redis
+    ports:
+      - "6379:6379"
+    # --- ¡¡¡IMPORTANTE!!! ---
+    # Descomenta y ajusta las siguientes líneas según el escenario que quieras probar
+    command: redis-server /usr/local/etc/redis/redis.conf # Ejecuta redis con el archivo de config
+    volumes:
+    #   # Monta UNO de los siguientes archivos de configuración:
+    #- ./redis_configs/redis-small-lru.conf:/usr/local/etc/redis/redis.conf:ro
+    #- ./redis_configs/redis-large-lru.conf:/usr/local/etc/redis/redis.conf:ro
+    - ./redis_configs/redis-small-random.conf:/usr/local/etc/redis/redis.conf:ro
+    #- ./redis_configs/redis-large-random.conf:/usr/local/etc/redis/redis.conf:ro
+    restart: unless-stopped # Reiniciar si falla
+
+  # --- Servicio Importador (Opcional) ---
+  mongo_importer:
+    image: python:3.10-slim
+    container_name: waze_mongo_importer
+    working_dir: /app
+    volumes:
+      - scraper_output:/app/data:ro # Lee el JSON del scraper
+      - ./import_to_mongo.py:/app/import_to_mongo.py:ro # Monta el script local
+    depends_on:
+      - mongo_db
+    environment:
+      MONGO_HOST: mongo_db
+      JSON_FILE: /app/data/waze_events.json
+    command: >
+      bash -c "pip install pymongo && # Ya no necesita pytz/dateutil
+               echo 'Importer: Esperando a MongoDB...' && sleep 20 &&
+               echo 'Importer: Ejecutando script de importación...' &&
+               python import_to_mongo.py"
+    # restart: 'no'
+
+  # --- Servicio Generador de Tráfico ---
+  traffic_generator:
+    build:
+      context: ./generator # Construye desde la carpeta generator
+    container_name: waze_traffic_generator
+    depends_on:
+      - mongo_db # Necesita que MongoDB esté listo
+      - redis_cache # Necesita que Redis esté listo
+    environment:
+      MONGO_HOST: mongo_db
+      REDIS_HOST: redis_cache
+      # --- ¡¡¡AJUSTAR ESTOS PARA CADA PRUEBA!!! ---
+      ARRIVAL_MODE: "jittered" # Opciones: "poisson" o "jittered"
+      NUM_REQUESTS: "11000"      # Número total de consultas
+      REDIS_CONFIG_FILE: "redis-small-random.conf" # ej: redis-large-random.conf
+      SIMULATION_DURATION: "30" # Opcional: Duración objetivo en segundos
+    # --- CAMBIO: Aumentar la espera antes de ejecutar el script ---
+    command: >
+      bash -c "pip install pymongo redis numpy &&
+               echo 'Generator: Esperando a MongoDB/Redis...' && sleep 50 && # <-- Aumentado a 60 segundos
+               echo 'Generator: Ejecutando script...' &&
+               python traffic_generator.py"
+    # restart: 'no'
+
+
+# Definir los volúmenes nombrados
+volumes:
+  mongodb_data:
+    driver: local
+  scraper_output:
+    driver: local
