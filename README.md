@@ -6,5 +6,5 @@ Repositorio con los códigos usados para el desarrollo de la tarea del curso de 
 
 
 **Autor:** Jose Olave y Sebastián Gulfo
-Tareas SD
+
 **Fecha inicial:** Abril 2025
