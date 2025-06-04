@@ -1,110 +1,213 @@
-# -*- coding: utf-8 -*-
-
 import json
-import sys
+import os
+import time
+import pymongo
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
+from datetime import datetime
 import logging
-import os # Para verificar si existe el JSON
-
-# --- Dependencias ---
-try:
-    from pymongo import MongoClient
-    from pymongo.errors import ConnectionFailure, BulkWriteError
-except ModuleNotFoundError:
-    print("ERROR: El módulo 'pymongo' no está instalado. Ejecuta: pip install pymongo")
-    sys.exit(1)
-# Ya no se necesitan pytz ni dateutil
 
 # --- Configuración de Logging ---
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    stream=sys.stdout)
-logger = logging.getLogger()
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
-# --- Configuración ---
-MONGO_HOST = os.getenv('MONGO_HOST', 'mongo_db')
-MONGO_URI = f"mongodb://{MONGO_HOST}:27017/"
-DATABASE_NAME = "waze_data"
-COLLECTION_NAME = "events"
-JSON_FILE_PATH = os.getenv('JSON_FILE', '/app/data/waze_events.json')
+MONGO_HOST = os.getenv('MONGO_HOST', 'localhost')
+MONGO_PORT = int(os.getenv('MONGO_PORT', 27017))
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'waze_data')
+MONGO_COLLECTION_NAME = os.getenv('MONGO_COLLECTION_NAME', 'events')
+JSON_FILE = os.getenv('JSON_FILE', '/app/data/waze_events.json')
+PROCESSED_FILE_DIR = os.path.join(os.path.dirname(JSON_FILE), "processed_events")
 
-# Ya no necesitamos parse_utc_timestamp ni adjust_timestamp
+# Crear el directorio para archivos procesados si no existe
+os.makedirs(PROCESSED_FILE_DIR, exist_ok=True)
 
-def import_data():
-    """Lee el archivo JSON e inserta/actualiza los datos en MongoDB usando event_id."""
-    logger.info(f"Intentando conectar a MongoDB en: {MONGO_URI}")
+
+# Parámetros para la espera inicial y reintentos
+MIN_EVENTS_THRESHOLD = 500  # Un objetivo mínimo de eventos para empezar el procesamiento "real"
+MAX_WAIT_ATTEMPTS = 120    # Máximo de intentos para esperar el archivo JSON o los eventos (120 * 5s = 10 minutos)
+WAIT_BETWEEN_ATTEMPTS = 5  # Segundos de espera entre intentos
+
+def connect_to_mongodb():
+    """Intenta conectar a MongoDB y devuelve el cliente."""
+    client = None
+    for i in range(MAX_WAIT_ATTEMPTS):
+        try:
+            client = MongoClient(f"mongodb://{MONGO_HOST}:{MONGO_PORT}/", serverSelectionTimeoutMS=5000)
+            client.admin.command('ping') # Comando ligero para verificar conexión
+            logger.info(f"Conexión a MongoDB exitosa en {MONGO_HOST}:{MONGO_PORT}")
+            return client
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            logger.warning(f"Fallo de conexión a MongoDB (Intento {i+1}/{MAX_WAIT_ATTEMPTS}): {e}. Reintentando en {WAIT_BETWEEN_ATTEMPTS}s...")
+            time.sleep(WAIT_BETWEEN_ATTEMPTS)
+        except Exception as e:
+            logger.error(f"Error inesperado al conectar a MongoDB (Intento {i+1}/{MAX_WAIT_ATTEMPTS}): {e}. Reintentando en {WAIT_BETWEEN_ATTEMPTS}s...")
+            time.sleep(WAIT_BETWEEN_ATTEMPTS)
+    logger.error("No se pudo conectar a MongoDB después de varios intentos. Terminando.")
+    return None
+
+def import_events_to_mongo(collection, events_to_import):
+    """Importa una lista de eventos a MongoDB, manejando duplicados con upsert."""
+    imported_count = 0
+    updated_count = 0
+    # Usar un bulk write para eficiencia
+    operations = []
+
+    for event_data in events_to_import:
+        # Usar el 'event_id' que ahora incluye el timestamp de scrape como un identificador único.
+        # Si quieres que Mongo trate eventos similares como el mismo (ej. mismo tipo, dirección, reportero)
+        # aunque el scraper los haya recogido en diferentes momentos y les haya dado diferentes `event_id`s,
+        # necesitarías generar una clave `_id` o de `query` basada en los campos "lógicos" del evento
+        # (tipo, dirección, reportero), y luego usar `upsert` con esa clave.
+        # Para este proyecto, el `event_id` del scraper se asume como único para el upsert.
+        
+        event_id = event_data.get('event_id')
+        if not event_id:
+            logger.warning(f"Evento sin 'event_id', saltando: {event_data}")
+            continue
+
+        operations.append(
+            pymongo.UpdateOne(
+                {'event_id': event_id},
+                {'$set': event_data},
+                upsert=True
+            )
+        )
+    
+    if not operations:
+        return 0, 0 # No hay operaciones para ejecutar
+
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
-        client.admin.command('ping')
-        logger.info("Conexión a MongoDB exitosa.")
-    except ConnectionFailure as e:
-        logger.error(f"Error al conectar a MongoDB: {e}")
-        sys.exit(1)
+        result = collection.bulk_write(operations, ordered=False) # ordered=False para continuar si hay un error en una operación
+        imported_count = result.upserted_count
+        updated_count = result.modified_count
+    except OperationFailure as e:
+        logger.error(f"Error de MongoDB durante bulk write: {e}")
+        # Puedes analizar e.details para errores más específicos si necesitas.
+    except Exception as e:
+        logger.error(f"Error inesperado durante bulk write a MongoDB: {e}")
+            
+    return imported_count, updated_count
 
-    db = client[DATABASE_NAME]
-    collection = db[COLLECTION_NAME]
-    logger.info(f"Usando base de datos '{DATABASE_NAME}' y colección '{COLLECTION_NAME}'.")
 
+def load_and_process_json_file(collection):
+    """Carga eventos del archivo JSON, los importa a MongoDB y renombra el archivo (para evitar reprocesar)."""
+    if not os.path.exists(JSON_FILE):
+        return 0, 0, collection.count_documents({}) # newly_imported, newly_updated, total_in_mongo
+
+    events_from_file = []
+    # Añadir reintentos para leer el archivo JSON, ya que el scraper puede estar escribiendo en él
+    max_json_read_attempts = 5
+    for attempt in range(max_json_read_attempts):
+        try:
+            with open(JSON_FILE, 'r', encoding='utf-8') as f:
+                events_from_file = json.load(f)
+            break # Si la lectura es exitosa, salir del bucle de reintentos
+        except json.JSONDecodeError as e:
+            logger.warning(f"Error al decodificar JSON del archivo {JSON_FILE} (Intento {attempt+1}/{max_json_read_attempts}): {e}. Podría estar incompleto. Reintentando en 1s...")
+            time.sleep(1)
+        except Exception as e:
+            logger.warning(f"Error al leer archivo {JSON_FILE} (Intento {attempt+1}/{max_json_read_attempts}): {e}. Reintentando en 1s...")
+            time.sleep(1)
+    else: # Si el bucle de reintentos se agota sin éxito
+        logger.error(f"Fallo persistente al leer el archivo JSON {JSON_FILE} después de {max_json_read_attempts} intentos. El archivo puede estar corrupto o bloqueado. Renombrando para evitar más problemas.")
+        timestamp_err = datetime.now().strftime("%Y%m%d%H%M%S")
+        try:
+            os.rename(JSON_FILE, JSON_FILE + f".corrupt_{timestamp_err}")
+        except OSError as oe:
+            logger.error(f"No se pudo renombrar el archivo corrupto {JSON_FILE}: {oe}. Puede que ya no exista.")
+        return 0, 0, collection.count_documents({})
+
+
+    if not events_from_file:
+        logger.info(f"El archivo {JSON_FILE} está vacío.")
+        # Renombrar archivos vacíos para que no se reprocesen.
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        processed_file_path = os.path.join(PROCESSED_FILE_DIR, f"{os.path.basename(JSON_FILE)}.empty_{timestamp}")
+        try:
+            os.rename(JSON_FILE, processed_file_path)
+            logger.info(f"Archivo vacío {JSON_FILE} renombrado a {processed_file_path}.")
+        except OSError as oe:
+            logger.error(f"No se pudo renombrar el archivo vacío {JSON_FILE}: {oe}. Puede que ya no exista.")
+        return 0, 0, collection.count_documents({})
+
+
+    logger.info(f"Cargados {len(events_from_file)} eventos del archivo {JSON_FILE}.")
+    imported_new, updated_existing = import_events_to_mongo(collection, events_from_file)
+    
+    # Renombrar el archivo después de procesarlo para que el scraper pueda crear uno nuevo
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    processed_file_path = os.path.join(PROCESSED_FILE_DIR, f"{os.path.basename(JSON_FILE)}.processed_{timestamp}")
     try:
-        logger.info(f"Leyendo datos desde {JSON_FILE_PATH}...")
-        if not os.path.exists(JSON_FILE_PATH):
-             logger.error(f"Error: El archivo {JSON_FILE_PATH} no existe.")
-             sys.exit(1)
-        with open(JSON_FILE_PATH, 'r', encoding='utf-8') as f:
-            try: events_data = json.load(f)
-            except json.JSONDecodeError as e:
-                logger.error(f"Error al decodificar JSON en {JSON_FILE_PATH}: {e}")
-                sys.exit(1)
+        os.rename(JSON_FILE, processed_file_path)
+        logger.info(f"Archivo {JSON_FILE} procesado y renombrado a {processed_file_path}.")
+    except OSError as e:
+        logger.error(f"Error al renombrar el archivo {JSON_FILE} a {processed_file_path}: {e}. Esto puede causar reprocesamiento.")
+    
+    total_events_in_mongo = collection.count_documents({})
+    return imported_new, updated_existing, total_events_in_mongo
 
-        if not isinstance(events_data, list):
-            logger.error(f"Error: El archivo JSON no contiene una lista de eventos.")
-            sys.exit(1)
-        if not events_data:
-            logger.warning(f"El archivo {JSON_FILE_PATH} está vacío.")
-            return
+def main():
+    logger.info("--- Iniciando Script Importador a MongoDB ---")
+    
+    mongo_client = connect_to_mongodb()
+    if not mongo_client:
+        return
 
-        logger.info(f"Se encontraron {len(events_data)} eventos en el archivo JSON.")
-        upserted_count = 0; modified_count = 0; skipped_count = 0
+    db = mongo_client[MONGO_DB_NAME]
+    collection = db[MONGO_COLLECTION_NAME]
 
-        for event in events_data:
-            # --- CAMBIO: Usar 'event_id' del JSON como filtro ---
-            event_id_from_scraper = event.get('event_id')
+    # Bucle inicial para esperar la primera carga significativa de eventos del scraper
+    total_events_in_mongo = 0
+    wait_attempts = 0
+    while total_events_in_mongo < MIN_EVENTS_THRESHOLD and wait_attempts < MAX_WAIT_ATTEMPTS:
+        current_total_before_check = collection.count_documents({})
+        logger.info(f"Intento {wait_attempts+1}/{MAX_WAIT_ATTEMPTS} de espera inicial: {current_total_before_check} eventos en MongoDB. Esperando {MIN_EVENTS_THRESHOLD}...")
+        
+        newly_imported, newly_updated, current_total_after_check = load_and_process_json_file(collection)
+        total_events_in_mongo = current_total_after_check
+        
+        if newly_imported > 0 or newly_updated > 0: # Si se importaron eventos, notificar
+            logger.info(f"Eventos importados en esta ronda: {newly_imported} (nuevos), {newly_updated} (actualizados). Total en Mongo: {total_events_in_mongo}.")
+        
+        if total_events_in_mongo >= MIN_EVENTS_THRESHOLD:
+            logger.info(f"¡Umbral de {MIN_EVENTS_THRESHOLD} eventos alcanzado! Continuando con el procesamiento principal.")
+            break
+        
+        time.sleep(WAIT_BETWEEN_ATTEMPTS)
+        wait_attempts += 1
+    
+    if total_events_in_mongo < MIN_EVENTS_THRESHOLD:
+        logger.warning(f"Advertencia: No se alcanzó el umbral de {MIN_EVENTS_THRESHOLD} eventos después de {MAX_WAIT_ATTEMPTS} intentos. Iniciando el ciclo principal con {total_events_in_mongo} eventos.")
+    else:
+        logger.info(f"Carga inicial de eventos completada. Total: {total_events_in_mongo}")
 
-            if not event_id_from_scraper:
-                logger.warning(f"Evento omitido por falta de 'event_id': {event}")
-                skipped_count += 1; continue
+    # Bucle principal para procesamiento continuo de nuevos archivos JSON
+    while True:
+        try:
+            imported_this_round, updated_this_round, total_in_mongo = load_and_process_json_file(collection)
+            if imported_this_round > 0 or updated_this_round > 0:
+                logger.info(f"Total de eventos en MongoDB: {total_in_mongo} (nuevos en esta ronda: {imported_this_round}, actualizados: {updated_this_round})")
+            else:
+                logger.debug(f"No se encontraron nuevos archivos para importar en esta ronda. Total en Mongo: {total_in_mongo}")
+            
+            # Pausa entre rondas de importación para no sobrecargar el sistema
+            time.sleep(10) # Puedes ajustar esta pausa
 
-            # Filtro para buscar/actualizar basado en el event_id del scraper
-            upsert_filter = { "event_id": event_id_from_scraper }
+        except KeyboardInterrupt:
+            logger.info("Interrupción manual. Deteniendo importador.")
+            break
+        except Exception as e:
+            logger.error(f"Error inesperado en el bucle principal del importador: {e}")
+            time.sleep(15) # Pausa más larga en caso de error para evitar loops rápidos
 
-            # Datos a insertar/actualizar (el evento completo del JSON)
-            # Ya no necesitamos calcular ni ajustar timestamps aquí
-            event_data_for_mongo = event.copy()
-            # Eliminar campos calculados si existieran por error en el JSON
-            event_data_for_mongo.pop('timestamp_calculated_utc', None)
-            event_data_for_mongo.pop('timestamp_local_adjusted', None)
+    mongo_client.close()
+    logger.info("--- Script Importador a MongoDB finalizado ---")
 
-
-            try:
-                result = collection.update_one(
-                    upsert_filter,
-                    {"$set": event_data_for_mongo}, # Actualiza todo el documento si ya existe
-                    upsert=True # Inserta si no existe
-                )
-                if result.upserted_id: upserted_count += 1
-                elif result.modified_count > 0: modified_count += 1
-
-            except Exception as e:
-                logger.error(f"Error haciendo upsert para el evento con ID '{event_id_from_scraper}': {e}")
-                skipped_count += 1
-
-        logger.info("Proceso de importación/actualización completado.")
-        logger.info(f"Resultados: Insertados={upserted_count}, Actualizados={modified_count}, Omitidos={skipped_count}")
-
-    except FileNotFoundError: logger.error(f"Error: No se encontró el archivo {JSON_FILE_PATH}.")
-    except Exception as e: logger.exception(f"Ocurrió un error inesperado durante la importación: {e}")
-    finally:
-        logger.info("Cerrando conexión a MongoDB.")
-        client.close()
-
-if __name__ == "__main__":
-    import_data()
+if __name__ == '__main__':
+    main()

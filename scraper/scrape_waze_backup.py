@@ -10,6 +10,8 @@ import logging
 from datetime import datetime
 import os
 from collections import defaultdict
+# import tempfile # Eliminado: ya no gestionamos user-data-dir manualmente
+# import shutil   # Eliminado: ya no gestionamos user-data-dir manualmente
 
 # Intenta importar Selenium, sal si no está instalado
 try:
@@ -25,7 +27,7 @@ try:
         StaleElementReferenceException,
         ElementClickInterceptedException,
         ElementNotInteractableException,
-        WebDriverException
+        WebDriverException # Para errores de navegador/driver
     )
     from selenium.webdriver.common.action_chains import ActionChains
 except ModuleNotFoundError:
@@ -38,7 +40,6 @@ except ModuleNotFoundError:
 OUTPUT_DATA_DIR = "/app/data"
 LOG_FILENAME = os.path.join(OUTPUT_DATA_DIR, "log.txt")
 SCREENSHOT_DIR = os.path.join(OUTPUT_DATA_DIR, "screenshots")
-WAZE_EVENTS_FILENAME = os.path.join(OUTPUT_DATA_DIR, "waze_events.json")
 
 # Crear directorios si no existen
 os.makedirs(OUTPUT_DATA_DIR, exist_ok=True)
@@ -46,7 +47,7 @@ os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
 # Configuración básica del logging (se llama solo una vez)
 logging.basicConfig(
-    level=logging.INFO,  # Nivel por defecto: INFO. Cambiar a DEBUG para más detalle.
+    level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILENAME, encoding="utf-8"),
@@ -56,6 +57,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Función take_screenshot debe estar definida ANTES de ser llamada.
 def take_screenshot(driver_instance, filename_prefix="debug_screenshot"):
     """Toma una captura de pantalla y la guarda en el directorio de screenshots."""
     if driver_instance:
@@ -84,18 +86,15 @@ TARGET_ZOOM = 16
 logger.info(f"Usando nivel de zoom objetivo: {TARGET_ZOOM}")
 CLICKS_FOR_TARGET_ZOOM = 2
 
-# MAX_EVENTS se usará más como una referencia de "cuántos eventos se espera que la base de datos crezca"
-# y no como un límite estricto para cada corrida del scraper.
 MAX_EVENTS = 10000
 logger.info(f"Objetivo informativo de eventos a recolectar: {MAX_EVENTS}")
 
 STUCK_THRESHOLD = 5
 logger.info(f"Umbral anti-atasco (vistas sin eventos nuevos): {STUCK_THRESHOLD}")
 
-SLEEP_BETWEEN_SWEEPS = 300  # 5 minutos
+SLEEP_BETWEEN_SWEEPS = 300
 logger.info(f"Pausa entre barridos completos: {SLEEP_BETWEEN_SWEEPS} segundos")
 
-# --- Selectores de la Página ---
 MAP_SELECTOR = "#map"
 MARKER_SELECTOR = "div.leaflet-marker-icon.wm-alert-icon.leaflet-interactive, div.leaflet-marker-icon.wm-alert-cluster-icon.leaflet-interactive"
 LOCATION_SELECTOR = "div.wm-attribution-control__latlng > span"
@@ -133,12 +132,11 @@ WZ_SEARCH_INPUT_SELECTOR = "input.wm-search__input[placeholder='Elige el destino
 WM_ROUTING_TITLE_SELECTOR = "div.wm-routing__title"
 WM_ROUTING_CLOSE_BUTTON_SELECTOR = f"{WM_ROUTING_TITLE_SELECTOR} > button"
 
+scraped_events = []
+event_id_counts = defaultdict(int)
 
-# Variables globales para los eventos recolectados en la sesión actual
-scraped_events_in_session = []
-event_id_counts_in_session = defaultdict(int)
-
-# output_filename se moverá a la función save_events_to_file
+output_filename = os.path.join(OUTPUT_DATA_DIR, "waze_events.json")
+logger.info(f"Los eventos se guardarán en: {output_filename}")
 
 
 def click_random_empty_space(driver_instance):
@@ -146,19 +144,18 @@ def click_random_empty_space(driver_instance):
     try:
         window_width = driver_instance.execute_script("return window.innerWidth;")
         window_height = driver_instance.execute_script("return window.innerHeight;")
-
+        
         x = random.randint(int(window_width * 0.1), int(window_width * 0.9))
         y = random.randint(int(window_height * 0.1), int(window_height * 0.9))
-
+        
         logger.debug(f"  [ClickEmpty] Intentando clic en espacio vacío: ({x}, {y})")
         ActionChains(driver_instance).move_by_offset(x, y).click().perform()
-        ActionChains(driver_instance).move_by_offset(-x, -y).perform()
+        ActionChains(driver_instance).move_by_offset(-x, -y).perform() 
         time.sleep(0.3)
         return True
     except Exception as e:
         logger.debug(f"  [ClickEmpty] Fallo al hacer clic en espacio vacío: {e}")
         return False
-
 
 def dismiss_recurring_overlays(driver_instance, wait_time=0.5):
     """
@@ -237,8 +234,7 @@ def dismiss_recurring_overlays(driver_instance, wait_time=0.5):
         logger.debug("  [Overlay] Clic en espacio vacío realizado (sin garantía de cierre real).")
 
     return something_significant_was_closed
-
-
+    
 def dismiss_initial_elements(driver_instance):
     """
     Intenta cerrar varios elementos iniciales (publicidad, tooltips, cookies, filtros)
@@ -247,7 +243,7 @@ def dismiss_initial_elements(driver_instance):
     """
     logger.info("\n--- Intentando cerrar elementos iniciales (Ads, Tooltips, Cookies, Filtros)... ---")
     total_dismissed_elements = 0
-
+    
     while True:
         current_iteration_closed_something = False
         iteration_start_count = total_dismissed_elements
@@ -276,20 +272,20 @@ def dismiss_initial_elements(driver_instance):
                     current_iteration_closed_something = True
                     total_dismissed_elements += 1
                 else:
-                    logger.debug("  [Initial] No se encontró target para filtro 2 en Shadow DOM o no se pudo clickear.")
+                    logger.debug(f"  [Initial] No se encontró target para filtro 2 en Shadow DOM o no se pudo clickear.")
         except (NoSuchElementException, TimeoutException):
             pass
         except Exception as e:
             logger.error(f"  [Initial] Error al interactuar con filtro 2 (Shadow DOM): {e}")
             take_screenshot(driver_instance, "filter2_shadow_dom_error")
 
-        if not current_iteration_closed_something and total_dismissed_elements > iteration_start_count:
+        if not current_iteration_closed_something and total_dismissed_elements > iteration_start_count: 
             logger.info("  [Initial Dismiss] No se cerraron más elementos en esta iteración. Fin de intentos.")
             break
         elif not current_iteration_closed_something and total_dismissed_elements == iteration_start_count:
             logger.info("  [Initial Dismiss] No se cerró nada y no se había cerrado nada antes en esta pasada. Terminando.")
             break
-
+        
         time.sleep(0.5)
 
     logger.info(f"--- Cierre de elementos iniciales finalizado ({total_dismissed_elements} elementos gestionados) ---")
@@ -343,15 +339,15 @@ def set_initial_zoom(driver_instance, clicks_needed):
                 except Exception as js_err:
                     logger.error(f"    [Zoom Clic #{i+1}] Clic con JS también falló: {js_err}")
                     take_screenshot(driver_instance, f"zoom_click_js_fail_{i+1}_attempt{attempt}")
-
+            
             except (NoSuchElementException, TimeoutException) as e_find:
                 logger.error(f"    [Zoom Clic #{i+1}] No se encontró o no fue clickeable el botón de zoom (Intento {attempt+1}): {e_find}")
                 take_screenshot(driver_instance, f"zoom_button_not_found_{i+1}_attempt{attempt}")
-
+            
             except Exception as e_other:
                 logger.error(f"    [Zoom Clic #{i+1}] Error inesperado durante clic de zoom (Intento {attempt+1}): {e_other}")
                 take_screenshot(driver_instance, f"zoom_unexpected_error_{i+1}_attempt{attempt}")
-
+            
             if not clicked_this_zoom_step and attempt < max_attempts_per_zoom_click:
                 logger.debug(f"    [Zoom Clic #{i+1}] Reintentando en 0.5s...")
                 time.sleep(0.5)
@@ -408,7 +404,6 @@ def get_current_location(driver_instance, retries=2, delay=0.4):
             logger.exception(f"Error inesperado al obtener ubicación: {e}")
             return None, None
     return None, None
-
 
 def pan_map(driver_instance, direction_key, steps=1):
     """
@@ -475,7 +470,6 @@ def pan_map(driver_instance, direction_key, steps=1):
         take_screenshot(driver_instance, "pan_unexpected_error")
     return None, None
 
-
 def close_popup(driver_instance):
     """
     Intenta cerrar el popup de detalles de un evento.
@@ -491,12 +485,12 @@ def close_popup(driver_instance):
             try:
                 close_button.click()
             except ElementClickInterceptedException:
-                logger.warning("  -> Clic en botón de cerrar popup interceptado. Intentando JS.")
+                logger.warning(f"  -> Clic en botón de cerrar popup interceptado. Intentando JS.")
                 driver_instance.execute_script("arguments[0].click();", close_button)
             except Exception as e_click:
                 logger.warning(f"  -> Error al clickear botón de cerrar popup: {e_click}. Intentando JS.")
                 driver_instance.execute_script("arguments[0].click();", close_button)
-
+            
             popup_closed = True
             time.sleep(0.3)
         except TimeoutException:
@@ -525,18 +519,15 @@ def try_click(driver_instance, element_or_locator):
     max_click_attempts = 3
     for attempt in range(max_click_attempts):
         try:
-            # Asegurarse de que el elemento sea clickeable.
-            # Si se pasa un localizador (By.CSS_SELECTOR, SELECTOR_STR), usar WebDriverWait.
-            # Si se pasa un WebElement, asegurarse de que esté visible y habilitado.
             if isinstance(element_or_locator, tuple):
                 target_element = WebDriverWait(driver_instance, 5).until(
                     EC.element_to_be_clickable(element_or_locator)
                 )
-            else:  # Asumimos que es un WebElement
+            else:
                 target_element = WebDriverWait(driver_instance, 5).until(
                     EC.element_to_be_clickable(element_or_locator)
                 )
-
+            
             target_element.click()
             logger.debug(f"  -> Clic normal exitoso (intento {attempt+1}).")
             return True
@@ -544,10 +535,10 @@ def try_click(driver_instance, element_or_locator):
             error_msg = str(eci).splitlines()[0]
             logger.warning(f"  -> Clic interceptado (intento {attempt+1}): {error_msg}")
             take_screenshot(driver_instance, "click_intercepted_marker")
-
+            
             if dismiss_recurring_overlays(driver_instance, wait_time=1.0):
                 time.sleep(0.8)
-
+            
             if attempt < max_click_attempts - 1:
                 logger.info("     Reintentando clic (próximo intento será con JS o re-localización).")
                 continue
@@ -555,7 +546,7 @@ def try_click(driver_instance, element_or_locator):
                 logger.info("  -> Clic interceptado en el último intento normal, usando JS...")
                 try:
                     if isinstance(element_or_locator, tuple):
-                        element_for_js = WebDriverWait(driver_instance, 3).until(EC.presence_of_element_located(element_or_locator))
+                        element_for_js = WebDriverWait(driver_instance,3).until(EC.presence_of_element_located(element_or_locator))
                     else:
                         element_for_js = element_or_locator
                     driver_instance.execute_script("arguments[0].click();", element_for_js)
@@ -568,21 +559,20 @@ def try_click(driver_instance, element_or_locator):
         except (TimeoutException, StaleElementReferenceException, ElementNotInteractableException) as e_click:
             logger.warning(f"  -> Error durante el clic (intento {attempt+1}): {type(e_click).__name__} - {str(e_click).splitlines()[0]}")
             take_screenshot(driver_instance, "click_fail_element_state")
-            if attempt >= max_click_attempts - 1:
+            if attempt >= max_click_attempts -1:
                 return False
             time.sleep(0.5)
         except Exception as e_general:
             logger.exception(f"  -> Error inesperado durante el clic (intento {attempt+1}): {e_general}")
             take_screenshot(driver_instance, "click_unexpected_fail")
             return False
-    return False # Si todos los intentos fallan
-
+    return False
 
 def scrape_event_details(driver_instance, event_element):
     """
     Hace clic en un elemento de evento, extrae sus detalles del popup y lo guarda.
     """
-    global scraped_events_in_session, event_id_counts_in_session
+    global scraped_events, event_id_counts
     event_was_added = False
 
     dismiss_recurring_overlays(driver_instance, wait_time=0.5)
@@ -633,32 +623,36 @@ def scrape_event_details(driver_instance, event_element):
             "scrape_timestamp": datetime.now().isoformat()
         }
 
-        # Generar un event_id robusto
         event_id_parts = [
             event_data["reporter"] if event_data["reporter"] != "Desconocido" else "Anon",
-            re.sub(r'[^a-zA-Z0-9]', '', event_data["address"].lower()) if event_data["address"] != "No disponible" else "UnknownLoc", # Limpia dirección
-            re.sub(r'[^a-zA-Z0-9]', '', event_data["type"].lower()) if event_data["type"] != "Desconocido" else "UnknownType" # Limpia tipo
+            event_data["address"] if event_data["address"] != "No disponible" else "UnknownLoc",
+            event_data["type"] if event_data["type"] != "Desconocido" else "UnknownType"
         ]
-        # Añadir un hash basado en el timestamp de scraping para hacer el ID más único
-        # Esto es clave para que eventos repetidos con el mismo "tipo/reportero/dirección" pero en momentos distintos
-        # no sean considerados "duplicados" por el scraper (pero sí por el importador si son de la misma "entidad")
-        event_data["event_id"] = "-".join(part for part in event_id_parts) + "-" + str(int(time.time()))
+        event_id = "-".join(part.replace(" ", "_").replace("/", "_") for part in event_id_parts)
+        event_data["event_id"] = event_id
 
         log_summary = " | ".join(filter(None, details_text))
         if logger.level <= logging.INFO:
-            logger.info("     " + log_summary + f" | ID: {event_data['event_id']}")
+            logger.info("     " + log_summary + f" | ID: {event_id}")
 
-        # El límite de repeticiones de un ID ya no es tan relevante con el nuevo event_id
-        # que incluye el timestamp. Ahora, cada scrape de un evento es un "nuevo" evento
-        # desde la perspectiva del scraper, aunque MongoDB lo gestionará como upsert.
-        # Quitamos la lógica de `event_id_counts` para el scraper, se manejará en el importador.
-        scraped_events_in_session.append(event_data)
-        event_was_added = True
-        current_saved_count = len(scraped_events_in_session)
-        logger.warning(f"--- Evento recolectado y añadido a la lista de sesión #{current_saved_count} ---")
-        # Ya no guardamos el JSON por evento, sino al final del barrido.
-        # logger.warning(f"Datos: {json.dumps(event_data, ensure_ascii=False)}")
-        logger.warning("-" * 30)
+        current_count = event_id_counts.get(event_id, 0)
+        if current_count < 5:
+            scraped_events.append(event_data)
+            event_id_counts[event_id] = current_count + 1
+            event_was_added = True
+            current_saved_count = len(scraped_events)
+            logger.warning(f"--- Evento Guardado #{current_saved_count} ---")
+            event_json_string = json.dumps(event_data, ensure_ascii=False)
+            logger.warning(f"Datos: {event_json_string}")
+            logger.warning("-" * 30)
+            save_events()
+
+            if current_saved_count % 100 == 0:
+                logger.warning(f"--- Progreso: {current_saved_count} eventos guardados. ({len(event_id_counts)} IDs únicos encontrados) ---")
+        else:
+            if logger.level <= logging.INFO:
+                logger.info(f"  -> Evento con ID '{event_id}' omitido (límite de {current_count}/5 repeticiones alcanzado).")
+            event_was_added = False
 
         close_popup(driver_instance)
 
@@ -691,26 +685,33 @@ def click_cluster(driver_instance, cluster_element):
     return True
 
 
-def save_events_to_file(events_list, filename):
+def save_events():
     """
-    Guarda la lista de eventos raspados en el archivo JSON de forma segura
-    usando un archivo temporal.
+    Guarda la lista de eventos raspados en el archivo JSON.
+    Este archivo será consumido por el importador de MongoDB.
     """
+    global scraped_events, output_filename
     try:
-        output_dir_for_save = os.path.dirname(filename)
+        output_dir_for_save = os.path.dirname(output_filename)
         if not os.path.exists(output_dir_for_save):
             os.makedirs(output_dir_for_save, exist_ok=True)
             logger.info(f"Directorio de salida '{output_dir_for_save}' creado.")
 
-        temp_filename = filename + ".tmp"
-        with open(temp_filename, "w", encoding="utf-8") as f:
-            json.dump(events_list, f, ensure_ascii=False, indent=4)
-        os.rename(temp_filename, filename) # Renombrar para hacer la escritura atómica
-        logger.info(f"Eventos guardados en: {filename} ({len(events_list)} eventos)")
-        return True
+        with open(output_filename, "w", encoding="utf-8") as f:
+            json.dump(scraped_events, f, ensure_ascii=False, indent=4)
     except Exception as e:
-        logger.exception(f"  -> Error al guardar eventos en JSON ({filename}): {e}")
-        return False
+        logger.exception(f"  -> Error al guardar eventos en JSON ({output_filename}): {e}")
+
+def load_events():
+    """
+    Carga eventos previamente raspados desde el archivo JSON si existe.
+    Reconstruye las listas y contadores, aplicando límites de duplicados si aplica.
+    """
+    global scraped_events, event_id_counts
+    # Resetear siempre para un nuevo barrido, ya que el importer moverá el archivo procesado.
+    scraped_events = []
+    event_id_counts.clear()
+    logger.info(f"Listas de eventos y contadores reseteados para un nuevo barrido.")
 
 
 def move_to_coordinate(driver_instance, target_lat, target_lon, max_steps=150, tolerance=0.008):
@@ -770,13 +771,19 @@ def move_to_coordinate(driver_instance, target_lat, target_lon, max_steps=150, t
 
 # --- Flujo Principal de Ejecución ---
 def main():
-    global driver, scraped_events_in_session, event_id_counts_in_session
+    global driver
     driver = None
+    # user_data_dir = None # Eliminado: ya no gestionamos user-data-dir manualmente
     main_loop_running = True
 
     try:
+        # user_data_dir = tempfile.mkdtemp() # Eliminado
+        # logger.info(f"Usando directorio temporal para datos de usuario: {user_data_dir}") # Eliminado
+
         chrome_options = ChromeOptions()
+        # === MODIFICACIÓN CLAVE: Habilitar modo headless moderno ===
         chrome_options.add_argument("--headless=new")
+        # Las siguientes opciones se mantienen aunque headless las pueda ignorar, por compatibilidad o seguridad.
         chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--disable-setuid-sandbox")
         chrome_options.add_argument("--no-sandbox")
@@ -789,15 +796,18 @@ def main():
         chrome_options.add_argument("--disable-popup-blocking")
         chrome_options.add_argument("--log-level=3")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        
+        # === Eliminamos la especificación explícita del user-data-dir temporal ===
+        # chrome_options.add_argument(f"--user-data-dir={user_data_dir}") # Eliminado
 
         logger.info("Inicializando WebDriver para Chrome en modo Headless...")
         driver = webdriver.Chrome(options=chrome_options)
         logger.info("WebDriver de Chrome inicializado correctamente.")
 
         driver.get(WAZE_URL)
-
+        
         time.sleep(random.uniform(5, 10))
-
+        
         dismiss_initial_elements(driver)
         set_initial_zoom(driver, CLICKS_FOR_TARGET_ZOOM)
 
@@ -806,236 +816,230 @@ def main():
             last_processed_location_str = ""
             sweep_start_time = time.time()
 
-            logger.warning(f"\n{'='*10} INICIANDO NUEVO BARRIDO COMPLETO {'='*10}")
-            scraped_events_in_session = []  # Reiniciar la lista de eventos para cada barrido
-            event_id_counts_in_session.clear()  # Reiniciar el contador de IDs
+            try:
+                logger.warning(f"\n{'='*10} INICIANDO NUEVO BARRIDO COMPLETO {'='*10}")
+                load_events()
 
-            logger.info("\n--- Ajuste de Vista Inicial para Nuevo Barrido ---")
-            initial_lat = (TARGET_AREA["lat_max"] + TARGET_AREA["lat_min"]) / 2
-            initial_lon = (TARGET_AREA["lon_max"] + TARGET_AREA["lon_min"]) / 2
-            logger.info(f"Moviendo al centro del Área: Lat={initial_lat:.4f}, Lon={initial_lon:.4f}")
+                logger.info("\n--- Ajuste de Vista Inicial para Nuevo Barrido ---")
+                initial_lat = (TARGET_AREA["lat_max"] + TARGET_AREA["lat_min"]) / 2
+                initial_lon = (TARGET_AREA["lon_max"] + TARGET_AREA["lon_min"]) / 2
+                logger.info(f"Moviendo al centro del Área: Lat={initial_lat:.4f}, Lon={initial_lon:.4f}")
 
-            current_lat, current_lon = move_to_coordinate(driver, initial_lat, initial_lon, tolerance=0.01)
+                current_lat, current_lon = move_to_coordinate(driver, initial_lat, initial_lon, tolerance=0.01)
 
-            if current_lat is None or current_lon is None:
-                logger.critical("Advertencia CRÍTICA: No se pudo mover al centro del Área. Usando coordenadas calculadas.")
-                take_screenshot(driver, "move_to_center_failed")
-                current_lat, current_lon = initial_lat, initial_lon  # Fallback
+                if current_lat is None or current_lon is None:
+                    logger.critical("Advertencia CRÍTICA: No se pudo mover al centro del Área. Usando coordenadas calculadas.")
+                    take_screenshot(driver, "move_to_center_failed")
+                    current_lat, current_lon = initial_lat, initial_lon # Fallback
 
-            last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
+                last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
 
-            STEPS_PER_MOVE_V = 8
-            STEPS_PER_MOVE_H = 8
-            logger.info(f"--- Usando {STEPS_PER_MOVE_V} V / {STEPS_PER_MOVE_H} H pasos por movimiento ---")
+                STEPS_PER_MOVE_V = 8
+                STEPS_PER_MOVE_H = 8
+                logger.info(f"--- Usando {STEPS_PER_MOVE_V} V / {STEPS_PER_MOVE_H} H pasos por movimiento ---")
 
-            logger.info("\n--- Iniciando Barrido Automático (Serpentina) ---")
-            direction_v = Keys.ARROW_DOWN
-            max_consecutive_failures = 5
-            consecutive_failures = 0
-            keep_running_this_sweep = True
+                logger.info("\n--- Iniciando Barrido Automático (Serpentina) ---")
+                direction_v = Keys.ARROW_DOWN
+                max_consecutive_failures = 5
+                consecutive_failures = 0
+                keep_running_this_sweep = True
 
-            while keep_running_this_sweep and current_lon < TARGET_AREA["lon_max"]:
-                while keep_running_this_sweep and (
-                    (direction_v == Keys.ARROW_DOWN and current_lat > TARGET_AREA["lat_min"])
-                    or (direction_v == Keys.ARROW_UP and current_lat < TARGET_AREA["lat_max"])
-                ):
+                while keep_running_this_sweep and current_lon < TARGET_AREA["lon_max"]:
+                    while keep_running_this_sweep and (
+                        (direction_v == Keys.ARROW_DOWN and current_lat > TARGET_AREA["lat_min"])
+                        or (direction_v == Keys.ARROW_UP and current_lat < TARGET_AREA["lat_max"])
+                    ):
 
-                    current_location_str = f"{current_lat:.4f},{current_lon:.4f}"
-                    logger.info(f"\n--- [Recolectados esta sesión: {len(scraped_events_in_session)}] [Loc:{current_location_str}] Buscando ---")
-                    added_event_in_view = False
-                    processed_marker_this_pass = False
+                        current_location_str = f"{current_lat:.4f},{current_lon:.4f}"
+                        logger.info(f"\n--- [Guardados: {len(scraped_events)}] [Loc:{current_location_str}] Buscando ---")
+                        added_event_in_view = False
+                        processed_marker_this_pass = False
 
-                    try:
-                        dismiss_recurring_overlays(driver, wait_time=0.5)
-                        time.sleep(0.5)
+                        try:
+                            dismiss_recurring_overlays(driver, wait_time=0.5)
+                            time.sleep(0.5)
 
-                        markers = WebDriverWait(driver, 8).until(
-                            lambda d: d.find_elements(By.CSS_SELECTOR, MARKER_SELECTOR)
-                        )
+                            markers = WebDriverWait(driver, 8).until(
+                                lambda d: d.find_elements(By.CSS_SELECTOR, MARKER_SELECTOR)
+                            )
 
-                        if not markers:
-                            logger.info("  -> No se encontraron marcadores en esta vista.")
-                            processed_marker_this_pass = True
-                            if current_location_str == last_processed_location_str:
-                                stuck_counter += 1
-                            else:
-                                stuck_counter = 0
-                                last_processed_location_str = current_location_str
-                        else:
-                            try:
-                                visible_markers = [m for m in driver.find_elements(By.CSS_SELECTOR, MARKER_SELECTOR) if m.is_displayed()]
-                                logger.debug(f"  -> {len(visible_markers)} marcadores visibles para procesar.")
-                            except StaleElementReferenceException:
-                                logger.warning("  -> StaleElementReferenceException al re-localizar marcadores. Reintentando la vista.")
-                                time.sleep(1)
-                                continue
-
-                            for i, current_marker_element in enumerate(visible_markers):
-                                if not keep_running_this_sweep:
-                                    break
-                                try:
-                                    marker_classes = current_marker_element.get_attribute("class")
-
-                                    if "wm-alert-cluster-icon" in marker_classes:
-                                        logger.info(f"  -> Marcador {i+1}/{len(visible_markers)} es un CLUSTER. Intentando clic...")
-                                        if click_cluster(driver, current_marker_element):
-                                            # Después de hacer clic en un cluster, los marcadores pueden cambiar.
-                                            # Volvemos a escanear esta misma vista.
-                                            added_event_in_view = True # Considerar clic en cluster como "progreso"
-                                            processed_marker_this_pass = True
-                                            stuck_counter = 0
-                                            last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
-                                            logger.info("  -> Re-escaneando marcadores después de clic en cluster...")
-                                            time.sleep(0.5)
-                                            break # Salir del bucle for y re-evaluar la vista
-                                        else:
-                                            logger.warning(f"  -> Falló el clic en el cluster {i+1}.")
-                                            take_screenshot(driver, f"cluster_click_fail_{i+1}")
-
-                                    elif "wm-alert-icon" in marker_classes:
-                                        logger.info(f"  -> Marcador {i+1}/{len(visible_markers)} es un EVENTO. Intentando extraer...")
-                                        if scrape_event_details(driver, current_marker_element):
-                                            added_event_in_view = True
-                                        processed_marker_this_pass = True
-                                        time.sleep(0.1)
-
-                                except StaleElementReferenceException:
-                                    logger.debug(f"  -> Marcador {i+1} se volvió obsoleto. Saltando y re-escaneando.")
-                                    break
-                                except Exception as marker_proc_err:
-                                    logger.error(f"  -> Error procesando marcador específico ({i+1}): {marker_proc_err}")
-                                    take_screenshot(driver, f"marker_process_error_{i+1}")
-                                    continue
-
-                        if processed_marker_this_pass:
-                            if not added_event_in_view and markers:
+                            if not markers:
+                                logger.info("  -> No se encontraron marcadores en esta vista.")
+                                processed_marker_this_pass = True
                                 if current_location_str == last_processed_location_str:
                                     stuck_counter += 1
-                                    logger.warning(f"  -> Vista con marcadores pero sin eventos NUEVOS. Contador atasco: {stuck_counter}/{STUCK_THRESHOLD}")
                                 else:
                                     stuck_counter = 0
                                     last_processed_location_str = current_location_str
-                            elif added_event_in_view:
-                                stuck_counter = 0
-                                last_processed_location_str = current_location_str
-                            consecutive_failures = 0
-                        else:
-                            if markers:
-                                logger.warning("  -> ADVERTENCIA: Hubo marcadores pero no se procesó ninguno útil.")
-                            consecutive_failures += 1
-                            take_screenshot(driver, "view_not_processed_useful")
+                            else:
+                                try:
+                                    visible_markers = [m for m in driver.find_elements(By.CSS_SELECTOR, MARKER_SELECTOR) if m.is_displayed()]
+                                    logger.debug(f"  -> {len(visible_markers)} marcadores visibles para procesar.")
+                                except StaleElementReferenceException:
+                                    logger.warning("  -> StaleElementReferenceException al re-localizar marcadores. Reintentando la vista.")
+                                    time.sleep(1)
+                                    continue
 
-                        if stuck_counter >= STUCK_THRESHOLD:
-                            logger.error(f"¡¡¡ATASCO DETECTADO!!! ({stuck_counter}/{STUCK_THRESHOLD} vistas en misma loc sin progreso)")
-                            take_screenshot(driver, "stuck_detected")
-                            random_direction_key = random.choice([Keys.ARROW_UP, Keys.ARROW_DOWN, Keys.ARROW_LEFT, Keys.ARROW_RIGHT])
-                            random_steps = random.randint(5, 15)
-                            logger.warning(f"Intentando movimiento aleatorio para desatascar: {str(random_direction_key).split('.')[-1]} x {random_steps} pasos.")
-                            move_result = pan_map(driver, random_direction_key, random_steps)
-                            if move_result is not None:
-                                current_lat, current_lon = move_result
-                                logger.info("Movimiento aleatorio completado.")
-                                stuck_counter = 0
-                                last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
+                                for i, current_marker_element in enumerate(visible_markers):
+                                    if not keep_running_this_sweep:
+                                        break
+                                    try:
+                                        marker_classes = current_marker_element.get_attribute("class")
+
+                                        if "wm-alert-cluster-icon" in marker_classes:
+                                            logger.info(f"  -> Marcador {i+1}/{len(visible_markers)} es un CLUSTER. Intentando clic...")
+                                            if click_cluster(driver, current_marker_element):
+                                                added_event_in_view = True
+                                                processed_marker_this_pass = True
+                                                stuck_counter = 0
+                                                last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
+                                                logger.info("  -> Re-escaneando marcadores después de clic en cluster...")
+                                                time.sleep(0.5)
+                                                break
+                                            else:
+                                                logger.warning(f"  -> Falló el clic en el cluster {i+1}.")
+                                                take_screenshot(driver, f"cluster_click_fail_{i+1}")
+
+                                        elif "wm-alert-icon" in marker_classes:
+                                            logger.info(f"  -> Marcador {i+1}/{len(visible_markers)} es un EVENTO. Intentando extraer...")
+                                            if scrape_event_details(driver, current_marker_element):
+                                                added_event_in_view = True
+                                            processed_marker_this_pass = True
+                                            time.sleep(0.1)
+
+                                    except StaleElementReferenceException:
+                                        logger.debug(f"  -> Marcador {i+1} se volvió obsoleto. Saltando y re-escaneando.")
+                                        break
+                                    except Exception as marker_proc_err:
+                                        logger.error(f"  -> Error procesando marcador específico ({i+1}): {marker_proc_err}")
+                                        take_screenshot(driver, f"marker_process_error_{i+1}")
+                                        continue
+
+                            if processed_marker_this_pass:
+                                if not added_event_in_view and markers:
+                                    if current_location_str == last_processed_location_str:
+                                        stuck_counter += 1
+                                        logger.warning(f"  -> Vista con marcadores pero sin eventos NUEVOS. Contador atasco: {stuck_counter}/{STUCK_THRESHOLD}")
+                                    else:
+                                        stuck_counter = 0
+                                        last_processed_location_str = current_location_str
+                                elif added_event_in_view:
+                                    stuck_counter = 0
+                                    last_processed_location_str = current_location_str
                                 consecutive_failures = 0
                             else:
-                                logger.critical("Error crítico: Falló el movimiento aleatorio anti-atasco. Abortando barrido actual.")
-                                take_screenshot(driver, "stuck_recovery_fail")
-                                keep_running_this_sweep = False
-                                break
+                                if markers:
+                                    logger.warning("  -> ADVERTENCIA: Hubo marcadores pero no se procesó ninguno útil.")
+                                consecutive_failures += 1
+                                take_screenshot(driver, "view_not_processed_useful")
 
-                        if consecutive_failures >= max_consecutive_failures:
-                            logger.error(f"Error: {max_consecutive_failures} fallos generales consecutivos procesando vistas. Abortando barrido actual.")
-                            take_screenshot(driver, "consecutive_failures_limit")
-                            keep_running_this_sweep = False
-                            break
-
-                        if keep_running_this_sweep:
-                            direction_name = str(direction_v).replace("Keys.ARROW_", "")
-                            move_result = pan_map(driver, direction_v, STEPS_PER_MOVE_V)
-                            if move_result is not None:
-                                new_lat, new_lon = move_result
-                                if f"{new_lat:.4f},{new_lon:.4f}" == current_location_str and markers:
-                                    logger.warning(f"  -> ADVERTENCIA: La ubicación no cambió Y había marcadores después de mover {direction_name}.")
-                                    consecutive_failures += 1
+                            if stuck_counter >= STUCK_THRESHOLD:
+                                logger.error(f"¡¡¡ATASCO DETECTADO!!! ({stuck_counter}/{STUCK_THRESHOLD} vistas en misma loc sin progreso)")
+                                take_screenshot(driver, "stuck_detected")
+                                random_direction_key = random.choice([Keys.ARROW_UP, Keys.ARROW_DOWN, Keys.ARROW_LEFT, Keys.ARROW_RIGHT])
+                                random_steps = random.randint(5, 15)
+                                logger.warning(f"Intentando movimiento aleatorio para desatascar: {str(random_direction_key).split('.')[-1]} x {random_steps} pasos.")
+                                move_result = pan_map(driver, random_direction_key, random_steps)
+                                if move_result is not None:
+                                    current_lat, current_lon = move_result
+                                    logger.info("Movimiento aleatorio completado.")
+                                    stuck_counter = 0
+                                    last_processed_location_str = f"{current_lat:.4f},{current_lon:.4f}"
+                                    consecutive_failures = 0
                                 else:
-                                    logger.debug(f"  -> Nueva ubicación: Lat={new_lat:.4f}, Lon={new_lon:.4f}")
-                                current_lat, current_lon = new_lat, new_lon
-                            else:
+                                    logger.critical("Error crítico: Falló el movimiento aleatorio anti-atasco. Abortando barrido actual.")
+                                    take_screenshot(driver, "stuck_recovery_fail")
+                                    keep_running_this_sweep = False
+                                    break
+
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error(f"Error: {max_consecutive_failures} fallos generales consecutivos procesando vistas. Abortando barrido actual.")
+                                take_screenshot(driver, "consecutive_failures_limit")
                                 keep_running_this_sweep = False
                                 break
 
-                    except TimeoutException:
-                        logger.warning("  Timeout esperando marcadores en la vista. Moviendo...")
-                        take_screenshot(driver, "markers_timeout")
-                        consecutive_failures += 1
-                        if consecutive_failures >= max_consecutive_failures:
-                            logger.error(f"Error: {max_consecutive_failures} timeouts consecutivos buscando marcadores. Abortando barrido actual.")
-                            take_screenshot(driver, "markers_timeout_limit")
-                            keep_running_this_sweep = False
-                            break
-
-                        if keep_running_this_sweep:
-                            direction_name = str(direction_v).replace("Keys.ARROW_", "")
-                            move_result = pan_map(driver, direction_v, STEPS_PER_MOVE_V)
-                            if move_result is not None:
-                                new_lat, new_lon = move_result
-                                if f"{new_lat:.4f},{new_lon:.4f}" == current_location_str:
-                                    logger.warning(f"  -> ADVERTENCIA: La ubicación no cambió después de mover {direction_name} (post-timeout).")
-                                    consecutive_failures += 1
+                            if keep_running_this_sweep:
+                                direction_name = str(direction_v).replace("Keys.ARROW_", "")
+                                move_result = pan_map(driver, direction_v, STEPS_PER_MOVE_V)
+                                if move_result is not None:
+                                    new_lat, new_lon = move_result
+                                    if f"{new_lat:.4f},{new_lon:.4f}" == current_location_str and markers:
+                                        logger.warning(f"  -> ADVERTENCIA: La ubicación no cambió Y había marcadores después de mover {direction_name}.")
+                                        consecutive_failures += 1
+                                    else:
+                                        logger.debug(f"  -> Nueva ubicación: Lat={new_lat:.4f}, Lon={new_lon:.4f}")
+                                    current_lat, current_lon = new_lat, new_lon
                                 else:
-                                    logger.debug(f"  -> Nueva ubicación: Lat={new_lat:.4f}, Lon={new_lon:.4f}")
-                                current_lat, current_lon = new_lat, new_lon
-                            else:
+                                    keep_running_this_sweep = False
+                                    break
+
+                        except TimeoutException:
+                            logger.warning("  Timeout esperando marcadores en la vista. Moviendo...")
+                            take_screenshot(driver, "markers_timeout")
+                            consecutive_failures += 1
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error(f"Error: {max_consecutive_failures} timeouts consecutivos buscando marcadores. Abortando barrido actual.")
+                                take_screenshot(driver, "markers_timeout_limit")
                                 keep_running_this_sweep = False
                                 break
 
-                    except Exception as e_vista:
-                        logger.exception(f"Error inesperado en bucle de procesamiento de vista: {e_vista}")
-                        take_screenshot(driver, "view_processing_unexpected_error")
-                        consecutive_failures += 1
-                        if consecutive_failures >= max_consecutive_failures:
-                            logger.error(f"Error: {max_consecutive_failures} errores inesperados. Abortando barrido actual.")
-                            keep_running_this_sweep = False
-                # Fin del bucle while vertical
+                            if keep_running_this_sweep:
+                                direction_name = str(direction_v).replace("Keys.ARROW_", "")
+                                move_result = pan_map(driver, direction_v, STEPS_PER_MOVE_V)
+                                if move_result is not None:
+                                    new_lat, new_lon = move_result
+                                    if f"{new_lat:.4f},{new_lon:.4f}" == current_location_str:
+                                        logger.warning(f"  -> ADVERTENCIA: La ubicación no cambió después de mover {direction_name} (post-timeout).")
+                                        consecutive_failures += 1
+                                    else:
+                                        logger.debug(f"  -> Nueva ubicación: Lat={new_lat:.4f}, Lon={new_lon:.4f}")
+                                    current_lat, current_lon = new_lat, new_lon
+                                else:
+                                    keep_running_this_sweep = False
+                                    break
 
-                if not keep_running_this_sweep:
-                    break
+                        except Exception as e_vista:
+                            logger.exception(f"Error inesperado en bucle de procesamiento de vista: {e_vista}")
+                            take_screenshot(driver, "view_processing_unexpected_error")
+                            consecutive_failures += 1
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error(f"Error: {max_consecutive_failures} errores inesperados. Abortando barrido actual.")
+                                keep_running_this_sweep = False
+                    # Fin del bucle while vertical
 
-                # Mover a la derecha y cambiar dirección vertical
-                logger.info(f"\n--- Fin de columna vertical. Moviendo a la derecha ({STEPS_PER_MOVE_H} pasos) ---")
-                move_result_h = pan_map(driver, Keys.ARROW_RIGHT, STEPS_PER_MOVE_H)
-                if move_result_h is not None:
-                    new_lat_h, new_lon_h = move_result_h
-                    if f"{new_lat_h:.4f},{new_lon_h:.4f}" == current_location_str:
-                        logger.warning("  -> ADVERTENCIA: La ubicación no cambió después de mover DERECHA.")
-                        consecutive_failures += 1
+                    if not keep_running_this_sweep:
+                        break
+
+                    # Mover a la derecha y cambiar dirección vertical
+                    logger.info(f"\n--- Fin de columna vertical. Moviendo a la derecha ({STEPS_PER_MOVE_H} pasos) ---")
+                    move_result_h = pan_map(driver, Keys.ARROW_RIGHT, STEPS_PER_MOVE_H)
+                    if move_result_h is not None:
+                        new_lat_h, new_lon_h = move_result_h
+                        if f"{new_lat_h:.4f},{new_lon_h:.4f}" == current_location_str:
+                            logger.warning(f"  -> ADVERTENCIA: La ubicación no cambió después de mover DERECHA.")
+                            consecutive_failures += 1
+                        else:
+                            logger.debug(f"  -> Nueva ubicación: Lat={new_lat_h:.4f}, Lon={new_lon_h:.4f}")
+                        current_lat, current_lon = new_lat_h, new_lon_h
+
+                        if current_lon >= TARGET_AREA["lon_max"]:
+                            logger.warning("--- Límite Este del Área alcanzado. Finalizando ESTE barrido. ---")
                     else:
-                        logger.debug(f"  -> Nueva ubicación: Lat={new_lat_h:.4f}, Lon={new_lon_h:.4f}")
-                    current_lat, current_lon = new_lat_h, new_lon_h
+                        logger.critical("Error crítico al mover a la derecha. Abortando barrido actual.")
+                        take_screenshot(driver, "move_horizontal_fail")
+                        keep_running_this_sweep = False
+                        break
 
-                    if current_lon >= TARGET_AREA["lon_max"]:
-                        logger.warning("--- Límite Este del Área alcanzado. Finalizando ESTE barrido. ---")
-                        keep_running_this_sweep = False # Asegura la salida del bucle horizontal
-                else:
-                    logger.critical("Error crítico al mover a la derecha. Abortando barrido actual.")
-                    take_screenshot(driver, "move_horizontal_fail")
-                    keep_running_this_sweep = False
-                    break
-
-                if keep_running_this_sweep:
-                    if direction_v == Keys.ARROW_DOWN:
-                        direction_v = Keys.ARROW_UP
-                    else:
-                        direction_v = Keys.ARROW_DOWN
-            # Fin del bucle while horizontal
+                    if keep_running_this_sweep:
+                        if direction_v == Keys.ARROW_DOWN:
+                            direction_v = Keys.ARROW_UP
+                        else:
+                            direction_v = Keys.ARROW_DOWN
+            # Fin del bucle while horizontal (fin de un barrido completo)
 
             sweep_duration = time.time() - sweep_start_time
             logger.warning(f"\n{'='*10} BARRIDO COMPLETO FINALIZADO EN {sweep_duration:.1f} SEGUNDOS {'='*10}")
-            logger.warning(f"Total eventos recolectados en esta sesión: {len(scraped_events_in_session)}")
-
-            # Guardar todos los eventos recolectados en esta sesión a un archivo JSON
-            save_events_to_file(scraped_events_in_session, WAZE_EVENTS_FILENAME)
+            logger.warning(f"Total eventos guardados en el archivo en esta corrida: {len(scraped_events)}")
 
             logger.warning(f"Esperando {SLEEP_BETWEEN_SWEEPS} segundos antes del próximo barrido...")
             time.sleep(SLEEP_BETWEEN_SWEEPS)
@@ -1052,15 +1056,22 @@ def main():
         take_screenshot(driver, "global_unexpected_error")
     finally:
         logger.info("\n--- Finalizando Script ---")
-        # Asegurarse de guardar cualquier evento pendiente antes de salir
-        if scraped_events_in_session:
-            save_events_to_file(scraped_events_in_session, WAZE_EVENTS_FILENAME)
-        logger.warning(f"Total de eventos recolectados en esta sesión guardados en el archivo: {len(scraped_events_in_session)}")
+        save_events()
+        logger.warning(f"Total de eventos recolectados en esta sesión guardados en el archivo: {len(scraped_events)}")
+        logger.warning(f"Total de IDs únicos recolectados en esta sesión: {len(event_id_counts)}")
+        logger.warning(f"Resultados guardados en {output_filename}")
         logger.warning(f"Log completo guardado en {LOG_FILENAME}")
 
         if driver:
             logger.info("Cerrando navegador...")
             driver.quit()
+        # if user_data_dir and os.path.exists(user_data_dir): # Eliminado
+        #     logger.info(f"Limpiando directorio temporal de usuario: {user_data_dir}") # Eliminado
+        #     try:
+        #         shutil.rmtree(user_data_dir)
+        #     except OSError as e:
+        #         logger.error(f"Error al eliminar directorio temporal {user_data_dir}: {e}")
+
         logger.info("Script terminado.")
 
 if __name__ == '__main__':

@@ -1,0 +1,22 @@
+# generator/Dockerfile.traffic_generator
+FROM python:3.9-slim
+
+# Añade un ARG para "romper" el caché de la capa COPY si su valor cambia.
+ARG BUILD_DATE="2025-06-06-FINAL-FIX"
+
+WORKDIR /app
+
+# Instala dependencias del sistema necesarias.
+# Se eliminan las líneas que intentaban cambiar el mirror de apt, confiando en los defaults de Debian.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements_generator.txt .
+RUN pip install --no-cache-dir -r requirements_generator.txt
+
+COPY traffic_generator.py .
+
+CMD ["python", "traffic_generator.py"]

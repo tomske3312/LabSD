@@ -1,90 +1,222 @@
+# docker-compose.yml
+#
+# Configuración completa para la plataforma de análisis de tráfico de la Región Metropolitana.
+# Este archivo orquesta los servicios de scraping, almacenamiento (MongoDB), caching (Redis),
+# procesamiento distribuido (Hadoop y Apache Pig), y generación de tráfico sintético.
+#
+# Contiene las siguientes modificaciones:
+# - Versiones de imágenes específicas para Mongo y Redis para mayor estabilidad y reproducibilidad.
+# - VUELVE A USAR 'latest' para las imágenes de Hadoop de bde2020, ya que los tags específicos anteriores no existen.
+# - Uso de una red Docker personalizada para una mejor comunicación interna.
+# - Healthcheck mejorado para MongoDB para asegurar una startup más robusta.
+# - Activación de los comandos principales para Scraper, Mongo Importer y Pig Runner,
+#   permitiendo que sus scripts se ejecuten automáticamente al iniciar el contenedor.
+# - Configuración de volúmenes persistentes para datos y logs.
+# - Dependencias entre servicios para asegurar el orden de inicio correcto.
+
 services:
   # --- Servicio del Web Scraper ---
+  # Encargado de extraer información en tiempo real de Waze.
   scraper:
     build:
       context: ./scraper
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: "${BUILD_DATE:-$(date +%Y%m%d%H%M%S)}" # Asegura un nuevo build si cambia la fecha
     container_name: waze_scraper
     volumes:
-      - scraper_output:/app
-    restart: always # Mantener el scraper corriendo
+      - scraper_output:/app/data # Monta un volumen para que el scraper guarde los datos y logs
+    restart: always
+    networks:
+      - waze_network
+    stop_grace_period: 30s # Dar tiempo para guardar estado/logs
+    # Si el scraper necesita interactuar con la red externa, Docker Compose usará la red bridge por defecto para eso.
+    # El CMD en Dockerfile.scraper ya gestiona el inicio del script python.
 
   # --- Servicio MongoDB ---
+  # Base de datos NoSQL para almacenar los eventos de Waze y los resultados del procesamiento.
   mongo_db:
-    image: mongo:latest
+    image: mongo:6.0.17 # Versión específica para estabilidad
     container_name: waze_mongodb
     ports:
-      - "27017:27017"
+      - "27017:27017" # Mapea el puerto de MongoDB al host
     volumes:
-      - mongodb_data:/data/db # Volumen para persistir datos de MongoDB
+      - mongodb_data:/data/db # Volumen persistente para los datos de MongoDB
     restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: waze_data
+      MONGO_INITDB_DATABASE: waze_data # Define la base de datos inicial
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\").ok' --quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 180s # Tiempo extendido para que MongoDB inicie completamente
+    mem_limit: 4g
+    networks:
+      - waze_network
 
   # --- Servicio Redis Cache ---
+  # Utilizado para el sistema de cache de consultas frecuentes (de la entrega 1).
   redis_cache:
-    image: redis:latest
+    image: redis:7.2.4-alpine # Versión específica y ligera de Redis
     container_name: waze_redis
     ports:
-      - "6379:6379"
-    # --- ¡¡¡IMPORTANTE!!! ---
-    # Descomenta y ajusta las siguientes líneas según el escenario que quieras probar
-    command: redis-server /usr/local/etc/redis/redis.conf # Ejecuta redis con el archivo de config
+      - "6379:6379" # Mapea el puerto de Redis al host
+    command: redis-server /usr/local/etc/redis/redis.conf # Inicia Redis con una configuración específica
     volumes:
-    #   # Monta UNO de los siguientes archivos de configuración:
-    #- ./redis_configs/redis-small-lru.conf:/usr/local/etc/redis/redis.conf:ro
-    #- ./redis_configs/redis-large-lru.conf:/usr/local/etc/redis/redis.conf:ro
-    - ./redis_configs/redis-small-random.conf:/usr/local/etc/redis/redis.conf:ro
-    #- ./redis_configs/redis-large-random.conf:/usr/local/etc/redis/redis.conf:ro
-    restart: unless-stopped # Reiniciar si falla
+      - ./redis_configs/redis-small-random.conf:/usr/local/etc/redis/redis.conf:ro # Monta el archivo de configuración
+    restart: unless-stopped
+    networks:
+      - waze_network
+    mem_limit: 1g # Límite de memoria para Redis
 
-  # --- Servicio Importador (Opcional) ---
+  # --- Servicio Importador a MongoDB ---
+  # Lee los datos generados por el scraper y los importa a MongoDB.
   mongo_importer:
-    image: python:3.10-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.importer # Dockerfile específico para el importador
+      args:
+        BUILD_DATE: "${BUILD_DATE:-$(date +%Y%m%d%H%M%S)}"
     container_name: waze_mongo_importer
-    working_dir: /app
     volumes:
-      - scraper_output:/app/data:ro # Lee el JSON del scraper
-      - ./import_to_mongo.py:/app/import_to_mongo.py:ro # Monta el script local
-    depends_on:
-      - mongo_db
+      - scraper_output:/app/data # Accede a los datos generados por el scraper
     environment:
       MONGO_HOST: mongo_db
-      JSON_FILE: /app/data/waze_events.json
-    command: >
-      bash -c "pip install pymongo && # Ya no necesita pytz/dateutil
-               echo 'Importer: Esperando a MongoDB...' && sleep 20 &&
-               echo 'Importer: Ejecutando script de importación...' &&
-               python import_to_mongo.py"
-    # restart: 'no'
+      JSON_FILE: /app/data/waze_events.json # Archivo de entrada del scraper
+      PYTHONUNBUFFERED: 1 # Asegura que la salida de Python no esté buferizada
+    depends_on:
+      mongo_db:
+        condition: service_healthy # Espera a que MongoDB esté completamente saludable
+      scraper:
+        condition: service_started # Espera a que el scraper inicie
+    restart: always
+    networks:
+      - waze_network
+    stop_grace_period: 10s
 
   # --- Servicio Generador de Tráfico ---
+  # Simula consultas al sistema, interactuando con el almacenamiento y el cache.
   traffic_generator:
     build:
-      context: ./generator # Construye desde la carpeta generator
+      context: ./generator
+      dockerfile: Dockerfile.traffic_generator
+      args:
+        BUILD_DATE: "${BUILD_DATE:-$(date +%Y%m%d%H%M%S)}"
     container_name: waze_traffic_generator
-    depends_on:
-      - mongo_db # Necesita que MongoDB esté listo
-      - redis_cache # Necesita que Redis esté listo
     environment:
       MONGO_HOST: mongo_db
       REDIS_HOST: redis_cache
-      # --- ¡¡¡AJUSTAR ESTOS PARA CADA PRUEBA!!! ---
-      ARRIVAL_MODE: "jittered" # Opciones: "poisson" o "jittered"
-      NUM_REQUESTS: "11000"      # Número total de consultas
-      REDIS_CONFIG_FILE: "redis-small-random.conf" # ej: redis-large-random.conf
-      SIMULATION_DURATION: "30" # Opcional: Duración objetivo en segundos
-    # --- CAMBIO: Aumentar la espera antes de ejecutar el script ---
-    command: >
-      bash -c "pip install pymongo redis numpy &&
-               echo 'Generator: Esperando a MongoDB/Redis...' && sleep 50 && # <-- Aumentado a 60 segundos
-               echo 'Generator: Ejecutando script...' &&
-               python traffic_generator.py"
-    # restart: 'no'
+      # Puedes ajustar estas variables según tus pruebas
+      ARRIVAL_MODE: "poisson" # o "jittered"
+      NUM_REQUESTS: "50000" # Número de solicitudes a generar
+      REDIS_CONFIG_FILE: "small-random" # Nombre de la configuración de Redis para el log
+      SIMULATION_DURATION: "120" # Duración de la simulación en segundos
+    depends_on:
+      mongo_db:
+        condition: service_healthy # Espera a que MongoDB esté saludable
+      redis_cache:
+        condition: service_started # Espera a que Redis inicie
+    restart: always
+    networks:
+      - waze_network
+    stop_grace_period: 10s
 
+  # --- Servicios Hadoop (Namenode y Datanode) ---
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:latest # Vuelve a 'latest'
+    container_name: hadoop-namenode
+    restart: always
+    ports:
+      - "9870:9870" # Interfaz web del Namenode
+      - "9000:9000" # Puerto de comunicación RPC del Namenode
+    volumes:
+      - hadoop_namenode_data:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=labsdcluster
+    env_file: # Considera mover variables críticas directamente a `environment`
+      - ./hadoop.env
+    ulimits:
+      nproc: 65536
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: 2g
+    networks:
+      - waze_network
+    stop_grace_period: 30s
 
-# Definir los volúmenes nombrados
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:latest # Vuelve a 'latest'
+    container_name: hadoop-datanode
+    restart: always
+    volumes:
+      - hadoop_datanode_data:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "hadoop-namenode:9870" # Espera a que el Namenode esté disponible
+    depends_on:
+      - hadoop-namenode
+    env_file:
+      - ./hadoop.env
+    ulimits:
+      nproc: 65536
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: 2g
+    networks:
+      - waze_network
+    stop_grace_period: 30s
+
+  # --- Servicio para ejecutar Apache Pig y los scripts de Python auxiliares ---
+  pig-runner:
+    build:
+      context: .
+      dockerfile: ./pig_env/Dockerfile.pig # Dockerfile personalizado para Pig y sus dependencias (ahora incluyendo Python)
+      args:
+        BUILD_DATE: "${BUILD_DATE:-$(date +%Y%m%d%H%M%S)}"
+    container_name: waze_pig_runner
+    volumes:
+      - ./pig_scripts:/pig_scripts:ro         # Monta los scripts Pig en el contenedor (solo lectura)
+      - ./scripts_auxiliares:/scripts_auxiliares:ro # Monta scripts auxiliares como run_pipeline.sh y los scripts de exportación/carga
+      # Nota: export_mongo_to_hdfs.py ahora guarda el TSV en /tmp dentro de pig-runner,
+      # no se necesita un volumen compartido para 'data_to_load_hdfs'.
+    environment: # Pasa las versiones a la shell para que el script las use
+      PIG_VERSION: "0.17.0"
+      MONGO_HADOOP_VERSION: "2.0.2"
+      MONGO_HOST: mongo_db # Para export_mongo_to_hdfs.py
+      REDIS_HOST: redis_cache # Para load_pig_results_to_redis.py
+    depends_on:
+      hadoop-namenode:
+        condition: service_started
+      hadoop-datanode:
+        condition: service_started
+      mongo_db:
+        condition: service_healthy # Asegura que MongoDB esté disponible para leer datos
+      redis_cache:
+        condition: service_started # Asegura que Redis esté disponible para cargar resultados
+    command: ["/bin/bash", "/scripts_auxiliares/run_pipeline.sh"] # Inicia el script del pipeline
+    working_dir: /pig_scripts # Establece el directorio de trabajo
+    ulimits:
+      nproc: 65536
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: 2g # Aumentado a 2GB por si el procesamiento de Pig o Python necesita más
+    networks:
+      - waze_network
+    stop_grace_period: 30s
+
+# --- Definición de Volúmenes ---
 volumes:
   mongodb_data:
     driver: local
-  scraper_output:
+  scraper_output: # Donde el scraper guarda su JSON y logs
     driver: local
+  hadoop_namenode_data: {}
+  hadoop_datanode_data: {}
+
+# --- Definición de Redes ---
+networks:
+  waze_network:
+    driver: bridge

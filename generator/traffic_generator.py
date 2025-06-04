@@ -1,5 +1,3 @@
-print("--- Script traffic_generator.py iniciado ---", flush=True)
-
 import sys
 import os
 import random
@@ -11,13 +9,12 @@ import numpy as np # Necesario para distribuciones de tiempo
 # --- Dependencias ---
 try:
     from pymongo import MongoClient
-    from pymongo.errors import ConnectionFailure
+    from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 except ModuleNotFoundError:
     print("ERROR: El módulo 'pymongo' no está instalado. Ejecuta: pip install pymongo")
     sys.exit(1)
 try:
     import redis
-    # Importar ResponseError
     from redis.exceptions import ConnectionError as RedisConnectionError, ResponseError
 except ModuleNotFoundError:
     print("ERROR: El módulo 'redis' no está instalado. Ejecuta: pip install redis")
@@ -28,20 +25,24 @@ except ModuleNotFoundError:
     print("ERROR: El módulo 'numpy' no está instalado. Ejecuta: pip install numpy")
     sys.exit(1)
 
-
+# --- Configuración de Logging ---
+print("--- Script traffic_generator.py iniciado ---", flush=True)
 print("--- Dependencias importadas, configurando logger... ---", flush=True)
 
-# --- Configuración de Logging ---
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.INFO, # Nivel de log por defecto
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     stream=sys.stdout)
 logger = logging.getLogger()
+logger.setLevel(logging.INFO) # Asegurarse de que el logger principal esté en INFO o superior
 
 RESULTS_LOG_FILENAME = "generator_results.log"
 try:
+    # Se usa un logger independiente para los resultados finales para que no se mezclen
+    # con los logs de ejecución y puedan ser parseados fácilmente.
     results_formatter = logging.Formatter('%(asctime)s - CONF: %(redis_config)s - ARRIVAL: %(arrival_dist)s - RPS: %(avg_rps).2f - HITS: %(hits)s - MISSES: %(misses)s - HIT_RATE: %(hit_rate).2f%%')
     results_handler = logging.FileHandler(RESULTS_LOG_FILENAME, encoding='utf-8', mode='a') # Modo append
     results_handler.setFormatter(results_formatter)
+    
     class ResultsFilter(logging.Filter):
         def filter(self, record):
             return hasattr(record, 'is_result') and record.is_result
@@ -52,6 +53,7 @@ except Exception as e:
     print(f"--- ERROR configurando el log de resultados: {e} ---", flush=True)
 
 print("--- Logger configurado ---", flush=True)
+
 
 # --- Configuración ---
 MONGO_HOST = os.getenv('MONGO_HOST', 'mongo_db')
@@ -67,60 +69,65 @@ NUM_REQUESTS = int(os.getenv('NUM_REQUESTS', '50000'))
 REDIS_CONFIG_NAME = os.getenv('REDIS_CONFIG_FILE', 'CONFIG_NO_ESPECIFICADA')
 TOTAL_SIMULATION_DURATION_SECONDS = int(os.getenv('SIMULATION_DURATION', '60'))
 
-MONGO_CONNECT_RETRIES = 5
-MONGO_CONNECT_DELAY = 5
+# --- NUEVAS VARIABLES DE ESPERA DE DATOS ---
+MIN_EVENTS_THRESHOLD = 500 # Mínimo de eventos requeridos antes de iniciar la simulación
+DATA_AVAILABILITY_RETRIES = 120 # Número de intentos para esperar por los datos (120 * 10s = 20 minutos)
+DATA_AVAILABILITY_DELAY = 10 # Retardo entre cada intento (en segundos)
 
 def get_event_ids_from_mongo():
-    """Obtiene una lista de event_id únicos desde MongoDB."""
-    ids = []
+    """
+    Obtiene una lista de event_id únicos desde MongoDB, esperando hasta que haya suficientes datos.
+    """
+    event_ids = []
     client = None
+    
     logger.info(f"Obteniendo IDs únicos de eventos desde MongoDB ({MONGO_HOST})...")
     print(f"--- Intentando conectar a MongoDB en {MONGO_URI}... ---", flush=True)
 
-    for attempt in range(MONGO_CONNECT_RETRIES):
+    # Bucle para esperar por la conexión a MongoDB y la disponibilidad de datos
+    for attempt in range(DATA_AVAILABILITY_RETRIES):
         try:
-            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=10000)
-            client.admin.command('ping')
+            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000) # Timeout de conexión más corto
+            client.admin.command('ping') # Prueba la conexión
             logger.info(f"Conexión a MongoDB exitosa (Intento {attempt+1}).")
-            print(f"--- Conexión a MongoDB OK (Intento {attempt+1}) ---", flush=True)
-            break
-        except ConnectionFailure as e:
-            logger.warning(f"Intento {attempt+1} fallido: {e}")
-            print(f"--- ERROR Intento {attempt+1} conexión MongoDB: {e} ---", flush=True)
-            if attempt < MONGO_CONNECT_RETRIES - 1:
-                logger.info(f"Esperando {MONGO_CONNECT_DELAY}s...")
-                time.sleep(MONGO_CONNECT_DELAY)
+            
+            db = client[DATABASE_NAME]
+            collection = db[COLLECTION_NAME]
+            
+            # Usar estimated_document_count para una estimación rápida si la colección es grande
+            # O count_documents({}) si necesitas un conteo exacto (puede ser más lento en colecciones grandes)
+            current_event_count = collection.estimated_document_count() 
+            
+            logger.info(f"Intento {attempt+1}/{DATA_AVAILABILITY_RETRIES}: Se encontraron {current_event_count} eventos en MongoDB.")
+            
+            if current_event_count >= MIN_EVENTS_THRESHOLD:
+                logger.info(f"Umbral de {MIN_EVENTS_THRESHOLD} eventos alcanzado. Procediendo a obtener IDs.")
+                # Asegúrate de que `event_id` sea un campo válido en tus documentos de Waze.
+                # Si el campo es `_id`, cambia `collection.distinct("event_id")` a `collection.distinct("_id")`
+                event_ids = collection.distinct("event_id") 
+                logger.info(f"Se obtuvieron {len(event_ids)} event_ids únicos desde MongoDB.")
+                print(f"--- Número de IDs únicos encontrados: {len(event_ids)} ---", flush=True)
+                client.close()
+                return event_ids # Retorna los IDs y termina la función
             else:
-                logger.error("Máximos reintentos de conexión a MongoDB alcanzados.")
-                sys.exit(1)
+                logger.info(f"Esperando a tener al menos {MIN_EVENTS_THRESHOLD} eventos. Faltan: {MIN_EVENTS_THRESHOLD - current_event_count}. Reintentando en {DATA_AVAILABILITY_DELAY}s...")
+                client.close() # Cierra la conexión actual antes de esperar
+                time.sleep(DATA_AVAILABILITY_DELAY)
+
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            logger.warning(f"Error de conexión a MongoDB (Intento {attempt+1}/{DATA_AVAILABILITY_RETRIES}): {e}. Reintentando en {DATA_AVAILABILITY_DELAY}s...")
+            print(f"--- ERROR Intento {attempt+1} conexión MongoDB: {e} ---", flush=True)
+            if client: client.close() # Asegurarse de cerrar si la conexión falló a mitad
+            time.sleep(DATA_AVAILABILITY_DELAY)
         except Exception as e:
-             logger.exception(f"Error inesperado conectando a MongoDB (Intento {attempt+1}): {e}")
-             if attempt < MONGO_CONNECT_RETRIES - 1: time.sleep(MONGO_CONNECT_DELAY)
-             else: logger.error("Error inesperado persistente."); sys.exit(1)
-
-    if not client: sys.exit(1)
-
-    try:
-        db = client[DATABASE_NAME]
-        collection = db[COLLECTION_NAME]
-        logger.info(f"Leyendo 'event_id' desde {DATABASE_NAME}.{COLLECTION_NAME}...")
-        ids = collection.distinct("event_id")
-        logger.info(f"Se obtuvieron {len(ids)} event_ids únicos desde MongoDB.")
-        print(f"--- Número de IDs únicos encontrados: {len(ids)} ---", flush=True)
-    except Exception as e:
-        logger.exception(f"Error inesperado obteniendo IDs de MongoDB: {e}")
-        print(f"--- ERROR inesperado obteniendo IDs: {e} ---", flush=True)
-        ids = []
-    finally:
-         if client:
-              logger.info("Cerrando conexión a MongoDB.")
-              client.close()
-
-    if not ids:
-        logger.error("No se pudieron obtener IDs únicos de eventos desde MongoDB. Abortando.")
-        print("--- Lista de IDs vacía, abortando. ---", flush=True)
-        sys.exit(1)
-    return ids
+            logger.exception(f"Error inesperado al conectar o leer de MongoDB (Intento {attempt+1}): {e}. Reintentando en {DATA_AVAILABILITY_DELAY}s...")
+            if client: client.close()
+            time.sleep(DATA_AVAILABILITY_DELAY)
+    
+    # Si el bucle termina sin retornar (es decir, los reintentos se agotaron)
+    logger.error(f"No se pudieron obtener suficientes IDs únicos de eventos ({MIN_EVENTS_THRESHOLD}) desde MongoDB después de {DATA_AVAILABILITY_RETRIES} intentos. Abortando.")
+    print("--- Fallo al obtener IDs, abortando. ---", flush=True)
+    sys.exit(1) # Salir con un código de error si no hay datos
 
 def simulate_traffic(event_ids):
     """Simula el tráfico de consultas hacia Redis con distribución temporal."""
@@ -191,14 +198,11 @@ def simulate_traffic(event_ids):
                 try:
                     redis_conn.set(redis_key, "1")
                 except ResponseError as re:
-                    # --- CAMBIO: Verificar ambas cadenas de error OOM ---
                     error_string = str(re)
                     if "OOM command not allowed" in error_string or "used memory > 'maxmemory'" in error_string:
                         oom_errors += 1
-                        # Loguear solo a nivel INFO para reducir ruido
                         logger.info(f"  OOM Error al intentar SET para {redis_key}. Caché lleno (Miss contado).")
                     else:
-                        # Otro tipo de ResponseError durante el SET
                         logger.error(f"Error de respuesta inesperado de Redis durante SET para {redis_key}: {re}")
                 except RedisConnectionError as e_set:
                      logger.error(f"Error de conexión a Redis durante SET: {e_set}. Intentando reconectar...")
@@ -211,7 +215,7 @@ def simulate_traffic(event_ids):
                          break
                      except Exception as e_recon_set:
                          logger.exception(f"Error inesperado durante reconexión (post-SET fail): {e_recon_set}")
-                except Exception as set_err: # Capturar otros errores del SET
+                except Exception as set_err:
                      logger.exception(f"Error inesperado durante SET para {redis_key}: {set_err}")
 
 
@@ -230,7 +234,6 @@ def simulate_traffic(event_ids):
         except Exception as e:
             logger.exception(f"Error inesperado durante consulta a Redis para {redis_key}: {e}")
 
-        # Incrementar contador SIEMPRE al final de la iteración
         requests_processed += 1
 
         if requests_processed % (NUM_REQUESTS // 20 or 1) == 0:
@@ -239,7 +242,6 @@ def simulate_traffic(event_ids):
              current_rps = requests_processed / elapsed_time if elapsed_time > 0 else 0
              logger.info(f"  Progreso: {progress:.0f}% ({requests_processed}/{NUM_REQUESTS}) - RPS actual: {current_rps:.2f}")
 
-    # --- Fin del bucle while ---
     end_time = time.time()
     actual_duration = end_time - start_time
     actual_avg_rps = requests_processed / actual_duration if actual_duration > 0 else 0
@@ -281,14 +283,17 @@ def simulate_traffic(event_ids):
 if __name__ == "__main__":
     print("--- Entrando a __main__, llamando a get_event_ids_from_mongo... ---", flush=True)
     event_ids_list = get_event_ids_from_mongo()
+    # Si get_event_ids_from_mongo no sale con sys.exit(1), significa que encontró IDs
     print(f"--- get_event_ids_from_mongo retornó. Lista tiene {len(event_ids_list)} elementos. ---", flush=True)
 
-    if event_ids_list:
+    if event_ids_list: # Vuelve a verificar que la lista no esté vacía por si acaso
         print("--- Llamando a simulate_traffic... ---", flush=True)
         simulate_traffic(event_ids_list)
         print("--- simulate_traffic finalizado. ---", flush=True)
     else:
-        pass
+        # Esto no debería pasar si get_event_ids_from_mongo funciona como se espera
+        logger.error("La lista de IDs de eventos está vacía después de la espera. Abortando.")
+        sys.exit(1)
 
     print("--- Script traffic_generator.py finalizado. ---", flush=True)
     logging.shutdown()

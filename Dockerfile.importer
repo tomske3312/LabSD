@@ -1,0 +1,27 @@
+# Dockerfile.importer
+FROM python:3.10-slim
+
+# Añade un ARG para "romper" el caché de la capa COPY si su valor cambia.
+ARG BUILD_DATE="2025-06-06-FINAL-FIX"
+
+WORKDIR /app
+
+# Instala dependencias del sistema.
+# Se eliminan las líneas que intentaban cambiar el mirror de apt, confiando en los defaults de Debian.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget \
+    curl && \
+    rm -rf /var/lib/apt/lists/*
+
+
+COPY requirements_importer.txt .
+RUN pip install --no-cache-dir -r requirements_importer.txt
+
+COPY import_to_mongo.py .
+
+RUN mkdir -p /app/data
+
+RUN echo "BUILD_DATE: $BUILD_DATE"
+
+CMD ["python", "import_to_mongo.py"]

@@ -1,0 +1,748 @@
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-03 23:58:05,734 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-03 23:58:05,735 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-03 23:58:05,735 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-03 23:58:05,767 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748995085767.log
+[2Kwaze_pig_runner  | 2025-06-03 23:58:05,774 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,005 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,020 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748995086020.log
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,059 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,059 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,378 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-fa15004c-08ef-4660-be43-726981e02b8c
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,378 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,556 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,559 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,559 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,559 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-03 23:58:06,578 [main] INFO  org.apache.pig.Main - Pig script completed in 869 milliseconds (869 ms)
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,757 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,757 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,758 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,777 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748995866777.log
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,782 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,917 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,926 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748995866926.log
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,950 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:11:06,950 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,131 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-3f9b3ab2-293b-4f5f-a8ba-d63afbc4f87d
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,131 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,242 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,244 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,244 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,244 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:11:07,254 [main] INFO  org.apache.pig.Main - Pig script completed in 515 milliseconds (515 ms)
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:12:33,893 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:12:33,893 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:12:33,893 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:12:33,912 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748995953912.log
+[2Kwaze_pig_runner  | 2025-06-04 00:12:33,917 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,053 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,062 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748995954062.log
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,085 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,085 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,261 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-817f99ef-4505-45fc-afda-61053235b078
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,262 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,363 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,365 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,365 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,365 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:12:34,375 [main] INFO  org.apache.pig.Main - Pig script completed in 501 milliseconds (501 ms)
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,336 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,337 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,337 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,357 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748996048357.log
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,362 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,500 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,509 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748996048509.log
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,535 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,535 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,710 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-f289d8e2-bf60-4262-95da-86c14534bbba
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,710 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,834 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,836 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,836 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,836 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 27, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:14:08,847 [main] INFO  org.apache.pig.Main - Pig script completed in 526 milliseconds (526 ms)
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,055 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,055 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,056 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,074 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748996158074.log
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,079 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,211 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,220 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748996158220.log
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,250 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,250 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,435 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-8a1ce773-fa37-4d9c-a919-5bbf6d407431
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,435 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,549 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,551 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,551 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,551 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:15:58,562 [main] INFO  org.apache.pig.Main - Pig script completed in 523 milliseconds (523 ms)
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,621 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,622 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,622 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,656 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748996826656.log
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,665 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,903 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,918 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748996826918.log
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,963 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:27:06,963 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,341 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-d163e8b6-b1ff-475a-b285-644ffed97caa
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,341 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,542 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,546 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,546 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,546 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 21, column 48>  Syntax error, unexpected symbol at or near ','
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:27:07,565 [main] INFO  org.apache.pig.Main - Pig script completed in 974 milliseconds (974 ms)
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:33:47,788 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:33:47,789 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:33:47,789 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:33:47,827 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748997227827.log
+[2Kwaze_pig_runner  | 2025-06-04 00:33:47,841 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,078 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,102 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748997228102.log
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,146 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,146 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,482 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-9326e45a-38eb-4fe0-a549-defe09ee3acb
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,482 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,677 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,681 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,681 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,681 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:33:48,704 [main] INFO  org.apache.pig.Main - Pig script completed in 942 milliseconds (942 ms)
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
+[2Kwaze_pig_runner  | + export PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + PIG_CLASSPATH=/opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | + echo 'PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar'
+[2Kwaze_pig_runner  | + echo 'Ejecutando script Pig: 01_filter_homogenize.pig...'
+[2Kwaze_pig_runner  | PIG_CLASSPATH configurado: /opt/pig-0.17.0/lib/mongo-hadoop-core-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-hadoop-pig-2.0.2.jar:/opt/pig-0.17.0/lib/mongo-java-driver-3.12.11.jar
+[2Kwaze_pig_runner  | Ejecutando script Pig: 01_filter_homogenize.pig...
+[2Kwaze_pig_runner  | + pig -f /pig_scripts/01_filter_homogenize.pig
+[2Kwaze_pig_runner  | + tee /tmp/pig_filter_homogenize.log
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,153 INFO pig.ExecTypeProvider: Trying ExecType : LOCAL
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,154 INFO pig.ExecTypeProvider: Trying ExecType : MAPREDUCE
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,154 INFO pig.ExecTypeProvider: Picked MAPREDUCE as the ExecType
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,190 WARN pig.Main: Cannot write to log file: /pig_scripts/pig_1748997430190.log
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,199 [main] INFO  org.apache.pig.Main - Apache Pig version 0.17.0 (r1797386) compiled Jun 02 2017, 15:41:58
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,446 [main] INFO  org.apache.pig.impl.util.Utils - Default bootup file /root/.pigbootup not found
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,460 [main] WARN  org.apache.pig.Main - Cannot write to log file: /pig_scripts//01_filter_homogenize.pig1748997430460.log
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,506 [main] INFO  org.apache.hadoop.conf.Configuration.deprecation - mapred.job.tracker is deprecated. Instead, use mapreduce.jobtracker.address
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,506 [main] INFO  org.apache.pig.backend.hadoop.executionengine.HExecutionEngine - Connecting to hadoop file system at: hdfs://hadoop-namenode:9000
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,851 [main] INFO  org.apache.pig.PigServer - Pig Script ID for the session: PIG-01_filter_homogenize.pig-e26ae3ac-b8c8-49d2-a9ba-3d29d9ed7cc2
+[2Kwaze_pig_runner  | 2025-06-04 00:37:10,851 [main] WARN  org.apache.pig.PigServer - ATS is disabled since yarn.timeline-service.enabled set to false
+[2Kwaze_pig_runner  | 2025-06-04 00:37:11,071 [main] ERROR org.apache.pig.PigServer - exception during parsing: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | 2025-06-04 00:37:11,075 [main] ERROR org.apache.pig.tools.grunt.Grunt - ERROR 1200: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 2025-06-04 00:37:11,075 [main] WARN  org.apache.pig.tools.grunt.Grunt - There is no log file to write to.
+[2Kwaze_pig_runner  | 2025-06-04 00:37:11,075 [main] ERROR org.apache.pig.tools.grunt.Grunt - org.apache.pig.impl.logicalLayer.FrontendException: ERROR 1000: Error during parsing. <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1833)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.access$000(PigServer.java:1528)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.parseAndBuild(PigServer.java:461)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:486)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer.executeBatch(PigServer.java:472)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.executeBatch(GruntParser.java:171)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:234)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.GruntParser.parseStopOnError(GruntParser.java:205)
+[2Kwaze_pig_runner  | 	at org.apache.pig.tools.grunt.Grunt.exec(Grunt.java:81)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.run(Main.java:500)
+[2Kwaze_pig_runner  | 	at org.apache.pig.Main.main(Main.java:175)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+[2Kwaze_pig_runner  | 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+[2Kwaze_pig_runner  | 	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.run(RunJar.java:323)
+[2Kwaze_pig_runner  | 	at org.apache.hadoop.util.RunJar.main(RunJar.java:236)
+[2Kwaze_pig_runner  | Caused by: Failed to parse: <file /pig_scripts/01_filter_homogenize.pig, line 39, column 10>  mismatched input 'MATCHES' expecting RIGHT_PAREN
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:244)
+[2Kwaze_pig_runner  | 	at org.apache.pig.parser.QueryParserDriver.parse(QueryParserDriver.java:182)
+[2Kwaze_pig_runner  | 	at org.apache.pig.PigServer$Graph.parseQuery(PigServer.java:1820)
+[2Kwaze_pig_runner  | 	... 16 more
+[2Kwaze_pig_runner  | 
+[2Kwaze_pig_runner  | 2025-06-04 00:37:11,098 [main] INFO  org.apache.pig.Main - Pig script completed in 973 milliseconds (973 ms)
+[2Kwaze_pig_runner  | + '[' 6 -ne 0 ']'
+[2Kwaze_pig_runner  | Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.
+[2Kwaze_pig_runner  | + echo 'Error: 01_filter_homogenize.pig falló. Ver log en /tmp/pig_filter_homogenize.log o en la consola.'
+[2Kwaze_pig_runner  | + exit 1
+[2Kwaze_pig_runner  | + set -e
+[2Kwaze_pig_runner  | + echo 'Iniciando run_pipeline.sh...'
+[2Kwaze_pig_runner  | + echo 'Esperando que Hadoop Namenode salga de safemode...'
+[2Kwaze_pig_runner  | Iniciando run_pipeline.sh...
+[2Kwaze_pig_runner  | Esperando que Hadoop Namenode salga de safemode...
+[2Kwaze_pig_runner  | + hdfs dfsadmin -safemode get
+[2Kwaze_pig_runner  | + grep -q OFF
+[2Kwaze_pig_runner  | + echo 'Hadoop Namenode está listo.'
+[2Kwaze_pig_runner  | Hadoop Namenode está listo.
+[2Kwaze_pig_runner  | Esperando que MongoDB tenga al menos 500 eventos para procesar...
+[2Kwaze_pig_runner  | Confiando en que mongo_importer está llenando MongoDB...
+[2Kwaze_pig_runner  | + echo 'Esperando que MongoDB tenga al menos 500 eventos para procesar...'
+[2Kwaze_pig_runner  | + MONGO_HOST=mongo_db
+[2Kwaze_pig_runner  | + MONGO_PORT=27017
+[2Kwaze_pig_runner  | + MONGO_DB_NAME=waze_data
+[2Kwaze_pig_runner  | + MONGO_COLLECTION_NAME=events
+[2Kwaze_pig_runner  | + MAX_MONGO_WAIT_ATTEMPTS=60
+[2Kwaze_pig_runner  | + CURRENT_MONGO_WAIT_ATTEMPT=0
+[2Kwaze_pig_runner  | + echo 'Confiando en que mongo_importer está llenando MongoDB...'
+[2Kwaze_pig_runner  | + sleep 30
