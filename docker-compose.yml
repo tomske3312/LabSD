@@ -1,90 +1,179 @@
+# docker-compose.yml (Versión con contextos de build corregidos)
 services:
-  # --- Servicio del Web Scraper ---
   scraper:
     build:
-      context: ./scraper
+      context: ./scraper # Busca un Dockerfile en la carpeta ./scraper/
     container_name: waze_scraper
     volumes:
-      - scraper_output:/app
-    restart: always # Mantener el scraper corriendo
+      - scraper_data:/app/data
+    restart: on-failure:3
+    shm_size: '2gb'
 
-  # --- Servicio MongoDB ---
-  mongo_db:
-    image: mongo:latest
-    container_name: waze_mongodb
-    ports:
-      - "27017:27017"
+  importer:
+    build:
+      context: ./importer # Busca un Dockerfile en la carpeta ./importer/
+    container_name: waze_importer
     volumes:
-      - mongodb_data:/data/db # Volumen para persistir datos de MongoDB
-    restart: unless-stopped
+      - scraper_data:/app/data
     environment:
-      MONGO_INITDB_DATABASE: waze_data
-
-  # --- Servicio Redis Cache ---
-  redis_cache:
-    image: redis:latest
-    container_name: waze_redis
-    ports:
-      - "6379:6379"
-    # --- ¡¡¡IMPORTANTE!!! ---
-    # Descomenta y ajusta las siguientes líneas según el escenario que quieras probar
-    command: redis-server /usr/local/etc/redis/redis.conf # Ejecuta redis con el archivo de config
-    volumes:
-    #   # Monta UNO de los siguientes archivos de configuración:
-    #- ./redis_configs/redis-small-lru.conf:/usr/local/etc/redis/redis.conf:ro
-    #- ./redis_configs/redis-large-lru.conf:/usr/local/etc/redis/redis.conf:ro
-    - ./redis_configs/redis-small-random.conf:/usr/local/etc/redis/redis.conf:ro
-    #- ./redis_configs/redis-large-random.conf:/usr/local/etc/redis/redis.conf:ro
-    restart: unless-stopped # Reiniciar si falla
-
-  # --- Servicio Importador (Opcional) ---
-  mongo_importer:
-    image: python:3.10-slim
-    container_name: waze_mongo_importer
-    working_dir: /app
-    volumes:
-      - scraper_output:/app/data:ro # Lee el JSON del scraper
-      - ./import_to_mongo.py:/app/import_to_mongo.py:ro # Monta el script local
+      - MONGO_HOST=storage_db
+      - ELASTICSEARCH_HOST=elasticsearch
+      - PYTHONUNBUFFERED=1
     depends_on:
-      - mongo_db
-    environment:
-      MONGO_HOST: mongo_db
-      JSON_FILE: /app/data/waze_events.json
-    command: >
-      bash -c "pip install pymongo && # Ya no necesita pytz/dateutil
-               echo 'Importer: Esperando a MongoDB...' && sleep 20 &&
-               echo 'Importer: Ejecutando script de importación...' &&
-               python import_to_mongo.py"
-    # restart: 'no'
+      storage_db:
+        condition: service_healthy
+      scraper:
+        condition: service_started
+    restart: on-failure
 
-  # --- Servicio Generador de Tráfico ---
+  storage_db:
+    image: mongo:6.0
+    container_name: waze_storage_db
+    ports: ["27017:27017"]
+    volumes: ["mongodb_data:/data/db"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping').ok", "--quiet"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    restart: unless-stopped
+    ports: ["9870:9870"]
+    volumes: ["namenode_data:/hadoop/dfs/name"]
+    environment: { CLUSTER_NAME: test }
+    env_file: ["./hadoop.env"]
+    ulimits: { nproc: 65536, nofile: { soft: 65536, hard: 65536 } }
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-safemode", "get"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    restart: unless-stopped
+    volumes: ["datanode_data:/hadoop/dfs/data"]
+    env_file: ["./hadoop.env"]
+    depends_on: { hadoop-namenode: { condition: service_healthy } }
+    ulimits: { nproc: 65536, nofile: { soft: 65536, hard: 65536 } }
+  
+  hadoop-resourcemanager:
+    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-resourcemanager
+    restart: unless-stopped
+    env_file: ["./hadoop.env"]
+    depends_on: { hadoop-namenode: { condition: service_healthy }, hadoop-datanode: { condition: service_started } }
+
+  hadoop-nodemanager:
+    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-nodemanager
+    restart: unless-stopped
+    env_file: ["./hadoop.env"]
+    depends_on: { hadoop-resourcemanager: { condition: service_started } }
+
+  pig-runner:
+    build:
+      context: ./pig_env # Busca un Dockerfile en la carpeta ./pig_env/
+      dockerfile: Dockerfile.pig # Especificamos el nombre del archivo
+    container_name: waze_pig_runner
+    volumes:
+      - ./pig_scripts:/pig_scripts:ro
+      - ./scripts_auxiliares:/scripts_auxiliares:ro
+      - ./core-site.xml:/opt/hadoop-3.2.1/etc/hadoop/core-site.xml:ro
+    environment: { MONGO_HOST: storage_db, REDIS_HOST: cache, ELASTICSEARCH_HOST: elasticsearch, PYTHONUNBUFFERED: "1" }
+    depends_on: { importer: { condition: service_started }, hadoop-nodemanager: { condition: service_started } }
+    restart: on-failure
+    command: ["/bin/bash", "/scripts_auxiliares/run_pipeline.sh"]
+
+  cache:
+    image: redis:7.2-alpine
+    container_name: waze_cache
+    ports: ["6379:6379"]
+    volumes: ["./redis_configs/redis-lru.conf:/usr/local/etc/redis/redis.conf"]
+    command: redis-server /usr/local/etc/redis/redis.conf
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # elasticsearch_importer:
+  #   build:
+  #     context: ./importer # Busca un Dockerfile en la carpeta ./importer/
+  #   container_name: waze_elasticsearch_importer
+  #   volumes:
+  #     - ./scripts_auxiliares:/scripts_auxiliares:ro
+  #   environment:
+  #     - MONGO_HOST=storage_db
+  #     - ELASTICSEARCH_HOST=elasticsearch
+  #     - PYTHONUNBUFFERED=1
+  #   depends_on:
+  #     storage_db:
+  #       condition: service_healthy
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   command: ["python3", "/scripts_auxiliares/export_mongo_to_elasticsearch.py"]
+
   traffic_generator:
     build:
-      context: ./generator # Construye desde la carpeta generator
+      context: ./generator # Busca un Dockerfile en la carpeta ./generator/
     container_name: waze_traffic_generator
+    environment: { REDIS_HOST: cache, PYTHONUNBUFFERED: "1" }
     depends_on:
-      - mongo_db # Necesita que MongoDB esté listo
-      - redis_cache # Necesita que Redis esté listo
+      cache: { condition: service_healthy }
+      pig-runner: { condition: service_started }
+    restart: on-failure
+
+  elasticsearch:
+    image: elasticsearch:8.14.1
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
     environment:
-      MONGO_HOST: mongo_db
-      REDIS_HOST: redis_cache
-      # --- ¡¡¡AJUSTAR ESTOS PARA CADA PRUEBA!!! ---
-      ARRIVAL_MODE: "jittered" # Opciones: "poisson" o "jittered"
-      NUM_REQUESTS: "11000"      # Número total de consultas
-      REDIS_CONFIG_FILE: "redis-small-random.conf" # ej: redis-large-random.conf
-      SIMULATION_DURATION: "30" # Opcional: Duración objetivo en segundos
-    # --- CAMBIO: Aumentar la espera antes de ejecutar el script ---
-    command: >
-      bash -c "pip install pymongo redis numpy &&
-               echo 'Generator: Esperando a MongoDB/Redis...' && sleep 50 && # <-- Aumentado a 60 segundos
-               echo 'Generator: Ejecutando script...' &&
-               python traffic_generator.py"
-    # restart: 'no'
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
+  kibana:
+    image: kibana:8.14.1
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
-# Definir los volúmenes nombrados
 volumes:
+  scraper_data:
   mongodb_data:
-    driver: local
-  scraper_output:
-    driver: local
+  namenode_data:
+  datanode_data:
+  elasticsearch_data:
